@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Rainbow Test 🌈</title>
+    <!-- Подключаем шрифты и анимации -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --accent: #fd79a8;
+            --glass: rgba(255, 255, 255, 0.2);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            color: white;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #app {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass);
+            border-radius: 30px;
+            padding: 40px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn {
+            background: white;
+            color: #333;
+            border: none;
+            padding: 15px 25px;
+            margin: 10px 0;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn:active { transform: scale(0.95); }
+
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        #progress {
+            height: 100%;
+            background: white;
+            width: 0%;
+            border-radius: 10px;
+            transition: width 0.4s;
+        }
+
+        h1 { font-size: 28px; margin-bottom: 10px; }
+        p { opacity: 0.9; }
+
+        #result-circle {
+            width: 120px;
+            height: 120px;
+            line-height: 120px;
+            border-radius: 50%;
+            background: white;
+            color: var(--primary);
+            font-size: 30px;
+            font-weight: bold;
+            margin: 20px auto;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(255,255,255,0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+        }
+
+        .hidden { display: none; }
+
+        /* Звуковые иконки */
+        #sound-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Аудио элементы -->
+    <audio id="bgMusic" loop src="music1.mp3"></audio>
+    <audio id="clickSound" src="click.mp3"></audio>
+    <audio id="finishSound" src="finish.mp3"></audio>
+
+    <div id="app" class="animate__animated animate__fadeInUp">
+        <div id="sound-toggle" onclick="toggleMusic()">🎵</div>
+
+        <div id="start-screen">
+            <h1>🌈 Тест на Гейство 2.0</h1>
+            <p>35 каверзных вопросов с подвохом!</p>
+            <button class="btn" onclick="startQuiz()">Начать шоу!</button>
+        </div>
+
+        <div id="quiz-screen" class="hidden">
+            <div class="progress-container"><div id="progress"></div></div>
+            <h2 id="question-text">Загрузка вопроса...</h2>
+            <div id="options"></div>
+        </div>
+
+        <div id="result-screen" class="hidden">
+            <h1>Твой результат:</h1>
+            <div id="result-circle">0%</div>
+            <p id="result-desc"></p>
+            <button class="btn" onclick="share()">Поделиться результатом 📱</button>
+            <button class="btn" style="background: none; color: white; border: 1px solid white;" onclick="location.reload()">Пройти заново</button>
+        </div>
+    </div>
+
+<script>
+    const questions = [
+        { q: "У тебя упало мыло в душе, твои действия?", a: ["Подниму аккуратно", "Присяду на корточки", "Пусть лежит"], s: [2, 0, 1] },
+        { q: "Кто круче: Райан Гослинг или твоя бывшая?", a: ["Райан, без вариантов", "Бывшая", "Я сам!"], s: [2, 0, 1] },
+        { q: "Если парень подмигнул тебе в метро, ты:", a: ["Подмигну в ответ 😉", "Смущусь", "Выйду из вагона"], s: [2, 1, 0] },
+        { q: "Твое отношение к блеску для губ?", a: ["Юзаю гигиеничку", "Это стильно", "Фу"], s: [1, 2, 0] },
+        { q: "Как ты держишь кружку?", a: ["Отставив мизинчик", "Всей ладонью", "За ручку"], s: [2, 0, 1] },
+        { q: "Что ты выберешь: пиво или просекко?", a: ["Просекко 🥂", "Пиво 🍺", "Воду"], s: [2, 0, 0] },
+        { q: "Смотрел ли ты 'Горбатую гору'?", a: ["Да, плакал", "Слышал о ней", "Нет"], s: [2, 1, 0] },
+        { q: "Нравятся ли тебе мужские руки с венами?", a: ["О да...", "Ну руки как руки", "Не смотрю на них"], s: [2, 1, 0] },
+        { q: "Какого цвета твои носки сейчас?", a: ["Розовые/Белые", "Черные", "С уточками/принтом"], s: [2, 0, 1] },
+        { q: "Ты зашел в лифт с качком, твои мысли?", a: ["Какой парфюм?", "Надо подкачаться", "Хоть бы не пукнул"], s: [2, 1, 0] },
+        { q: "Как ты относишься к творчеству Инстасамки?", a: ["За деньги да!", "Бесит", "Не знаю её"], s: [2, 0, 0] },
+        { q: "Знаешь ли ты, что такое 'фистинг'?", a: ["К сожалению, да", "Это из игр?", "Нет"], s: [2, 1, 0] },
+        { q: "Твой любимый персонаж в Overwatch/играх?", a: ["Мерси/Дива", "Танк какой-нибудь", "Не играю"], s: [2, 0, 1] },
+        { q: "Как ты поправляешь прическу?", a: ["Каждые 5 минут", "Редко", "Вообще не трогаю"], s: [2, 1, 0] },
+        { q: "Что думаешь о мужском маникюре?", a: ["Красиво", "Только прозрачный", "Против"], s: [2, 1, 0] },
+        { q: "Любишь ли ты обтягивающие футболки?", a: ["Да, чтобы все видели", "Обычные ношу", "Только оверсайз"], s: [2, 1, 0] },
+        { q: "Как ты реагируешь на слово 'Сладкий'?", a: ["Оборачиваюсь", "Игнорю", "Злюсь"], s: [2, 0, 0] },
+        { q: "Твое отношение к сериалу 'Элита'?", a: ["Топчик", "Не осилил", "Что это?"], s: [2, 1, 0] },
+        { q: "Было ли желание потрогать друга за... пресс?", a: ["Да, по-дружески", "Нет", "Мы трогали"], s: [1, 0, 2] },
+        { q: "Какую музыку слушаешь в наушниках?", a: ["Поп-дивы/Техно", "Фонк/Рэп", "Рок/Метал"], s: [2, 1, 0] },
+        { q: "Умеешь ли ты танцевать тверк?", a: ["Пробовал", "Нет", "Я танцую лезгинку"], s: [2, 0, 1] },
+        { q: "Что ты скажешь, если я назову тебя 'лапочкой'?", a: ["Мяу", "Че?", "Улыбнусь"], s: [2, 0, 1] },
+        { q: "Твой любимый напиток в Starbucks?", a: ["Латте с сиропом", "Американо", "Я туда не хожу"], s: [2, 1, 0] },
+        { q: "Как ты сидишь: нога на ногу?", a: ["Да, это удобно", "Нет", "По-турецки"], s: [2, 0, 1] },
+        { q: "Ты видишь радугу в небе, твоя реакция?", a: ["О, флаг! (шутка)", "Просто радуга", "Красиво"], s: [2, 0, 1] },
+        { q: "Знаешь ли ты, кто такой Билли Херрингтон?", a: ["Легенда Gachi", "Какой-то актер", "Нет"], s: [2, 1, 0] },
+        { q: "Как ты относишься к парням с каре?", a: ["Это сексуально", "Норм", "Стричься надо"], s: [2, 1, 0] },
+        { q: "Твой идеальный отпуск?", a: ["Париж/Милан", "Горы/Палатки", "Турция все включено"], s: [2, 0, 1] },
+        { q: "Пользуешься ли ты патчами под глаза?", a: ["Да, спасают", "Что это?", "Редко"], s: [2, 0, 1] },
+        { q: "Как ты относишься к Лане Дель Рей?", a: ["Summertime Sadness...", "Норм", "Слишком грустно"], s: [2, 1, 0] },
+        { q: "Часто ли ты делаешь селфи?", a: ["Каждый день", "Раз в месяц", "Никогда"], s: [2, 1, 0] },
+        { q: "Твое отношение к кожаным штанам?", a: ["Хочу такие", "Странно", "Только для байкеров"], s: [2, 0, 1] },
+        { q: "Любишь ли ты, когда тебе дарят цветы?", a: ["Да, это мило", "Лучше деньги", "Я же мужик!"], s: [2, 1, 0] },
+        { q: "Ты пользуешься парфюмом больше 5000 рублей?", a: ["Конечно", "Мой дезик дешевле", "Подарили какой-то"], s: [2, 0, 1] },
+        { q: "Ты дошел до конца теста, ты гей?", a: ["Возможно", "Нет", "Только если ты"], s: [2, 0, 1] }
+    ];
+
+    let currentQ = 0;
+    let score = 0;
+    let musicPlaying = false;
+
+    const bgMusic = document.getElementById('bgMusic');
+    const clickSound = document.getElementById('clickSound');
+    const finishSound = document.getElementById('finishSound');
+
+    function toggleMusic() {
+        if (musicPlaying) {
+            bgMusic.pause();
+            document.getElementById('sound-toggle').innerText = '🔇';
+        } else {
+            bgMusic.play();
+            document.getElementById('sound-toggle').innerText = '🎵';
+        }
+        musicPlaying = !musicPlaying;
+    }
+
+    function startQuiz() {
+        if (!musicPlaying) toggleMusic();
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('quiz-screen').classList.remove('hidden');
+        showQuestion();
+    }
+
+    function showQuestion() {
+        const q = questions[currentQ];
+        const container = document.getElementById('options');
+        const qText = document.getElementById('question-text');
+        
+        qText.className = 'animate__animated animate__fadeInRight';
+        qText.innerText = q.q;
+        
+        container.innerHTML = '';
+        q.a.forEach((ans, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'btn animate__animated animate__fadeInUp';
+            btn.style.animationDelay = (i * 0.1) + 's';
+            btn.innerText = ans;
+            btn.onclick = () => select(q.s[i]);
+            container.appendChild(btn);
+        });
+
+        document.getElementById('progress').style.width = (currentQ / questions.length * 100) + '%';
+    }
+
+    function select(points) {
+        clickSound.currentTime = 0;
+        clickSound.play();
+        score += points;
+        currentQ++;
+        
+        if (currentQ < questions.length) {
+            showQuestion();
+        } else {
+            showResult();
+        }
+    }
+
+    function showResult() {
+        bgMusic.pause();
+        finishSound.play();
+        document.getElementById('quiz-screen').classList.add('hidden');
+        document.getElementById('result-screen').classList.remove('hidden');
+        
+        const percent = Math.round((score / (questions.length * 2)) * 100);
+        document.getElementById('result-circle').innerText = percent + '%';
+        
+        let desc = "";
+        if (percent > 85) desc = "Твоя мощь зашкаливает! Ты — Король Радуги! 👑🌈";
+        else if (percent > 50) desc = "Ты подозрительно стильный и манерный парень... 😉";
+        else if (percent > 20) desc = "Ты обычный парень, но иногда смотришь в зеркало слишком долго.";
+        else desc = "Уровень натуральности: Сверхчеловек. Розовый цвет тебя пугает. 🛡️";
+        
+        document.getElementById('result-desc').innerText = desc;
+    }
+
+    function share() {
+        const p = document.getElementById('result-circle').innerText;
+        const text = `Я прошел Ультимативный Тест и мой результат: ${p} гея! Проверь себя: `;
+        if (navigator.share) {
+            navigator.share({ title: 'Gay Test', text: text, url: window.location.href });
+        } else {
+            navigator.clipboard.writeText(text + window.location.href);
+            alert('Ссылка скопирована!');
+        }
+    }
+</script>
+</body>
+</html>
