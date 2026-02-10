@@ -3,207 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebToAPK Converter</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+    <title>Color ASCII Camera</title>
     <style>
-        :root {
-            --primary: #6a11cb;
-            --secondary: #2575fc;
-            --glass-bg: rgba(255, 255, 255, 0.1);
-            --glass-border: rgba(255, 255, 255, 0.2);
-            --text-color: #ffffff;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-
         body {
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            background-color: #000;
+            margin: 0;
             overflow: hidden;
-            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: white;
+            font-family: monospace;
         }
 
-        /* Фон */
-        .circles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: -1; }
-        .circles li { position: absolute; display: block; list-style: none; width: 20px; height: 20px; background: rgba(255, 255, 255, 0.2); animation: animate 25s linear infinite; bottom: -150px; }
-        .circles li:nth-child(1) { left: 25%; width: 80px; height: 80px; animation-delay: 0s; }
-        .circles li:nth-child(2) { left: 10%; width: 20px; height: 20px; animation-delay: 2s; animation-duration: 12s; }
-        .circles li:nth-child(3) { left: 70%; width: 20px; height: 20px; animation-delay: 4s; }
-        .circles li:nth-child(4) { left: 40%; width: 60px; height: 60px; animation-delay: 0s; animation-duration: 18s; }
-        @keyframes animate { 0% { transform: translateY(0) rotate(0deg); opacity: 1; border-radius: 0; } 100% { transform: translateY(-1000px) rotate(720deg); opacity: 0; border-radius: 50%; } }
-
-        /* Карточка */
-        .container {
-            width: 400px;
-            background: var(--glass-bg);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            text-align: center;
-            color: var(--text-color);
-            transition: transform 0.3s ease;
+        /* Основной холст, где будет картинка */
+        #outputCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
         }
-        .container:hover { transform: translateY(-5px); }
 
-        h1 { font-size: 24px; margin-bottom: 25px; font-weight: 700; background: linear-gradient(to right, #fff, #a5b4fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-
-        /* Поля ввода */
-        .inputs-wrapper { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
-        
-        input {
-            width: 100%;
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid transparent;
-            background: rgba(255, 255, 255, 0.05);
-            color: #fff;
-            outline: none;
-            transition: 0.3s;
-            font-size: 14px;
+        #controls {
+            position: fixed;
+            top: 10px;
+            z-index: 10;
         }
-        input::placeholder { color: rgba(255, 255, 255, 0.6); }
-        input:focus { border-color: var(--secondary); background: rgba(255, 255, 255, 0.1); }
 
-        /* Иконка */
-        .icon-upload { display: flex; flex-direction: column; align-items: center; margin-bottom: 25px; cursor: pointer; }
-        .icon-preview { width: 100px; height: 100px; border-radius: 22px; background: rgba(255, 255, 255, 0.05); border: 2px dashed rgba(255, 255, 255, 0.3); display: flex; justify-content: center; align-items: center; overflow: hidden; transition: 0.3s; position: relative; }
-        .icon-preview:hover { border-color: var(--secondary); transform: scale(1.05); }
-        .icon-preview img { width: 100%; height: 100%; object-fit: cover; display: none; }
-        .icon-preview span { font-size: 12px; color: rgba(255, 255, 255, 0.5); pointer-events: none; }
-        input[type="file"] { display: none; }
+        button {
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid white;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            font-size: 16px;
+        }
 
-        /* Кнопки */
-        .btn-generate { width: 100%; padding: 15px; border: none; border-radius: 10px; background: linear-gradient(90deg, var(--primary), var(--secondary)); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(106, 17, 203, 0.4); }
-        .btn-generate:hover { background: linear-gradient(90deg, var(--secondary), var(--primary)); transform: scale(1.02); }
-        .btn-download { background: linear-gradient(to right, #00b09b, #96c93d); margin-top: 10px; }
-
-        /* Экраны состояния */
-        .loader-screen, .success-screen { display: none; }
-        .spinner { width: 50px; height: 50px; border: 4px solid rgba(255, 255, 255, 0.1); border-left-color: var(--secondary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        .check-icon { width: 60px; height: 60px; background: #00b09b; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 20px; font-size: 30px; }
-        .app-name-display { font-weight: bold; font-size: 18px; margin-bottom: 5px; color: #a5b4fc; }
-
+        video { display: none; }
     </style>
 </head>
 <body>
-    <ul class="circles"><li></li><li></li><li></li><li></li><li></li><li></li></ul>
 
-    <div class="container">
-        <!-- Шаг 1: Форма -->
-        <div id="form-step">
-            <h1>Web to APK</h1>
-            
-            <div class="inputs-wrapper">
-                <input type="text" id="appNameInput" placeholder="Название приложения (например: My Shop)" required>
-                <input type="url" id="urlInput" placeholder="Ссылка (https://site.com)" required>
-            </div>
-
-            <label class="icon-upload" for="iconInput">
-                <div class="icon-preview" id="iconPreviewBox">
-                    <span id="uploadText">Иконка</span>
-                    <img id="iconImg" src="" alt="Icon">
-                </div>
-                <input type="file" id="iconInput" accept="image/*">
-            </label>
-
-            <button class="btn-generate" onclick="startGeneration()">Создать APK</button>
-        </div>
-
-        <!-- Шаг 2: Загрузка -->
-        <div id="loading-step" class="loader-screen">
-            <div class="spinner"></div>
-            <h3>Сборка...</h3>
-            <p class="status-text" id="statusText">Инициализация...</p>
-        </div>
-
-        <!-- Шаг 3: Готово -->
-        <div id="success-step" class="success-screen">
-            <div class="check-icon">✓</div>
-            <div class="app-name-display" id="resultAppName">App Name</div>
-            <p style="margin-bottom: 20px; font-size: 14px; opacity: 0.8;">Файл app-release.apk готов</p>
-            <button class="btn-generate btn-download" onclick="downloadApk()">Скачать файл</button>
-            <p style="margin-top: 15px; font-size: 12px; cursor: pointer; text-decoration: underline; opacity: 0.6;" onclick="reset()">Создать новое</p>
-        </div>
+    <div id="controls">
+        <button id="start-btn">Запустить цветной ASCII</button>
     </div>
 
+    <canvas id="outputCanvas"></canvas>
+    <video id="video" playsinline></video>
+
     <script>
-        const formStep = document.getElementById('form-step');
-        const loadingStep = document.getElementById('loading-step');
-        const successStep = document.getElementById('success-step');
-        const iconInput = document.getElementById('iconInput');
-        const iconImg = document.getElementById('iconImg');
-        const uploadText = document.getElementById('uploadText');
-        const statusText = document.getElementById('statusText');
-        const resultAppName = document.getElementById('resultAppName');
+        const video = document.getElementById('video');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const outputCtx = outputCanvas.getContext('2d', { alpha: false });
+        const startBtn = document.getElementById('start-btn');
 
-        // Предпросмотр картинки
-        iconInput.addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    iconImg.src = e.target.result;
-                    iconImg.style.display = 'block';
-                    uploadText.style.display = 'none';
-                }
-                reader.readAsDataURL(file);
+        // Вспомогательный канвас для обработки пикселей
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+        const chars = "@#S%?*+;:. ";
+        const fontSize = 10; // Размер "пикселя-символа"
+
+        async function init() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" },
+                    audio: false
+                });
+                video.srcObject = stream;
+                await video.play();
+                
+                startBtn.style.display = 'none';
+                render();
+            } catch (err) {
+                alert("Ошибка: " + err.message);
             }
-        });
+        }
 
-        function startGeneration() {
-            const name = document.getElementById('appNameInput').value;
-            const url = document.getElementById('urlInput').value;
+        function render() {
+            // 1. Настраиваем размеры
+            const width = video.videoWidth;
+            const height = video.videoHeight;
+            
+            // Уменьшаем разрешение для расчета (один символ на каждые fontSize пикселей)
+            const cols = Math.floor(width / fontSize);
+            const rows = Math.floor(height / fontSize);
 
-            if (!name || !url) {
-                alert('Заполните название и ссылку!');
-                return;
+            tempCanvas.width = cols;
+            tempCanvas.height = rows;
+
+            outputCanvas.width = width;
+            outputCanvas.height = height;
+
+            // 2. Рисуем видео на маленький канвас
+            tempCtx.drawImage(video, 0, 0, cols, rows);
+            const imageData = tempCtx.getImageData(0, 0, cols, rows);
+            const pixels = imageData.data;
+
+            // 3. Очищаем основной экран
+            outputCtx.fillStyle = 'black';
+            outputCtx.fillRect(0, 0, width, height);
+            
+            // Настройка шрифта
+            outputCtx.font = fontSize + "px monospace";
+            outputCtx.textAlign = "center";
+            outputCtx.textBaseline = "middle";
+
+            // 4. Проходим по каждому "пикселю" и рисуем символ цветом этого пикселя
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const i = (y * cols + x) * 4;
+                    const r = pixels[i];
+                    const g = pixels[i+1];
+                    const b = pixels[i+2];
+                    
+                    // Яркость для выбора символа
+                    const brightness = (r + g + b) / 3;
+                    const charIndex = Math.floor((brightness / 255) * (chars.length - 1));
+                    const char = chars[charIndex];
+
+                    // Устанавливаем цвет и рисуем
+                    outputCtx.fillStyle = `rgb(${r},${g},${b})`;
+                    outputCtx.fillText(char, x * fontSize + fontSize/2, y * fontSize + fontSize/2);
+                }
             }
 
-            formStep.style.display = 'none';
-            loadingStep.style.display = 'block';
-            resultAppName.innerText = name;
-
-            const statuses = [
-                `Настройка конфига для "${name}"...`,
-                "Обработка иконки...",
-                "Компиляция Android Manifest...",
-                "Сборка пакета APK...",
-                "Подпись ключом..."
-            ];
-
-            let step = 0;
-            const interval = setInterval(() => {
-                if (step < statuses.length) {
-                    statusText.innerText = statuses[step];
-                    step++;
-                } else {
-                    clearInterval(interval);
-                    loadingStep.style.display = 'none';
-                    successStep.style.display = 'block';
-                }
-            }, 1000);
+            requestAnimationFrame(render);
         }
 
-        function downloadApk() {
-            alert('Сайт работает в демо-режиме (без сервера). В реальном проекте здесь началась бы загрузка файла.');
-        }
-
-        function reset() {
-            successStep.style.display = 'none';
-            formStep.style.display = 'block';
-            document.getElementById('appNameInput').value = '';
-            document.getElementById('urlInput').value = '';
-            iconImg.style.display = 'none';
-            uploadText.style.display = 'block';
-            iconInput.value = '';
-        }
+        startBtn.addEventListener('click', init);
     </script>
 </body>
 </html>
