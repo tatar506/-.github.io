@@ -3,316 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TERRA CO-OP: REACH</title>
+    <title>TERRA REACH: 50 LEVELS</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --ui-gold: #ffce00;
-            --terra-green: #5da341;
-        }
-        body, html { 
-            margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%;
-            background: #000; font-family: 'Press+Start+2P', cursive;
-            user-select: none; -webkit-tap-highlight-color: transparent;
-        }
+        :root { --ui-gold: #ffce00; --terra-green: #5da341; --ui-bg: rgba(44, 62, 80, 0.9); }
+        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #000; font-family: 'Press+Start+2P', cursive; user-select: none; }
         #game-container { width: 100vw; height: 100vh; }
 
-        /* Оверлей меню */
+        /* Меню */
         #menu-overlay {
-            position: fixed; inset: 0; background: radial-gradient(circle, #2c3e50, #000);
+            position: fixed; inset: 0; background: #1a1a1a;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000; color: white;
         }
-        
-        /* Уведомление о повороте экрана */
-        #rotate-notice {
-            position: fixed; inset: 0; background: #000; z-index: 2000;
-            display: none; flex-direction: column; align-items: center; justify-content: center;
-            color: #fff; text-align: center; padding: 20px;
+        .menu-card {
+            background: #333; border: 4px solid #555; padding: 20px; text-align: center;
+            box-shadow: 8px 8px 0 #000; max-width: 90%;
         }
+        .title { color: var(--terra-green); font-size: 18px; text-shadow: 2px 2px #000; margin-bottom: 20px; }
 
-        .menu-title {
-            color: var(--terra-green); font-size: clamp(16px, 5vw, 28px); text-align: center;
-            text-shadow: 4px 4px #000; margin-bottom: 30px;
-        }
+        .previews { display: flex; gap: 20px; justify-content: center; margin: 20px 0; }
+        .p-box { width: 70px; height: 100px; border: 3px solid #777; background: #111; position: relative; }
+        .p-box canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+        .p-box.online { border-color: var(--ui-gold); box-shadow: 0 0 15px var(--ui-gold); }
+        .label { position: absolute; bottom: -15px; font-size: 7px; width: 100%; left: 0; }
 
-        .characters-preview { display: flex; gap: 20px; margin-bottom: 20px; }
-        .preview-box {
-            width: 80px; height: 120px; border: 4px solid #555;
-            background: rgba(0,0,0,0.5); position: relative;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .preview-box.empty { filter: brightness(0); opacity: 0.4; }
-        .preview-label { position: absolute; top: -15px; font-size: 7px; color: #fff; width: 100%; text-align: center; }
-
-        .btn-group { display: flex; flex-direction: column; gap: 12px; width: 90%; max-width: 320px; }
         .btn {
-            background: #4a6e35; border: 4px solid #2d4522; color: #fff;
-            padding: 14px; cursor: pointer; font-family: 'Press+Start+2P';
-            font-size: 10px; text-align: center; box-shadow: 0 4px 0 #1a2a14;
-            transition: 0.1s;
+            background: #4a6e35; border: 4px solid #2d4522; color: #fff; padding: 12px;
+            cursor: pointer; font-family: 'Press+Start+2P'; font-size: 10px; margin: 8px 0;
+            width: 100%; display: block; box-shadow: 4px 4px 0 #1a2a14;
         }
-        .btn:active { transform: translateY(4px); box-shadow: none; }
-        .btn.gold { background: #b08d00; border-color: #7a6200; box-shadow: 0 4px 0 #4d3d00; }
+        .btn:active { transform: translate(2px, 2px); box-shadow: none; }
+        .btn.gold { background: #b08d00; border-color: #7a6200; box-shadow: 4px 4px 0 #4d3d00; }
+
+        /* Состояние */
+        #status-text { font-size: 8px; color: #aaa; margin-top: 10px; }
 
         /* HUD */
-        .mobile-hud { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 100; }
+        .hud { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 100; }
         .grab-btn {
-            position: absolute; bottom: 30px; width: 80px; height: 80px;
-            border-radius: 50%; background: rgba(0,0,0,0.4);
-            border: 4px solid #fff; pointer-events: auto;
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            position: absolute; bottom: 30px; width: 85px; height: 85px;
+            border-radius: 50%; background: rgba(0,0,0,0.5); border: 4px solid #fff;
+            pointer-events: auto; display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 8px;
         }
-        #btn-l { left: 40px; }
-        #btn-r { right: 40px; }
-        .grab-btn.active { background: var(--ui-gold); border-color: #fff; color: #000; transform: scale(1.1); }
+        #btn-l { left: 40px; } #btn-r { right: 40px; }
+        .grab-btn.active { background: var(--ui-gold); color: #000; transform: scale(1.1); }
         
-        #chat-trigger {
-            position: absolute; top: 10px; left: 10px; pointer-events: auto;
-            background: rgba(0,0,0,0.5); padding: 8px; border: 2px solid #fff; color: #fff; font-size: 7px;
-        }
-        
-        #fs-toggle {
-            position: absolute; top: 10px; right: 10px; pointer-events: auto;
-            background: rgba(0,0,0,0.5); padding: 8px; border: 2px solid #fff; color: #fff; font-size: 7px;
-        }
+        .lvl-tag { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 10px; background: rgba(0,0,0,0.5); padding: 10px; border: 2px solid #fff; }
 
-        #chat-wrapper {
-            position: fixed; bottom: 120px; left: 20px; width: 250px;
-            pointer-events: none; z-index: 500;
-        }
-        .message {
-            background: rgba(0,0,0,0.7); color: #fff; padding: 6px;
-            font-size: 8px; margin-bottom: 5px; border-left: 4px solid var(--ui-gold);
-            animation: slideIn 0.3s;
-        }
-
-        #chat-input-box {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: none; width: 80%; pointer-events: auto; z-index: 1001;
-        }
-        #chat-input {
-            width: 100%; background: #000; border: 4px solid var(--ui-gold);
-            padding: 15px; color: #fff; font-family: 'Press+Start+2P'; font-size: 12px;
-        }
-
-        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        #rotate-msg { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center; }
     </style>
 </head>
 <body>
 
-    <div id="rotate-notice">
-        <p>ПОЖАЛУЙСТА,<br>ПЕРЕВЕРНИТЕ ТЕЛЕФОН</p>
-        <div style="font-size: 40px; margin-top: 20px;">📱🔄</div>
+    <div id="rotate-msg">
+        <p>ПЕРЕВЕРНИТЕ ТЕЛЕФОН<br>ДЛЯ ИГРЫ</p>
+        <span style="font-size: 40px;">📱🔄</span>
     </div>
 
     <div id="menu-overlay">
-        <h1 class="menu-title">TERRA CO-OP: REACH</h1>
-        
-        <div class="characters-preview">
-            <div class="preview-box" id="p1-box">
-                <div class="preview-label">ВЫ</div>
-                <canvas id="p1-canvas" width="60" height="90"></canvas>
+        <div class="menu-card">
+            <h1 class="title">TERRA REACH: 50 LVL</h1>
+            
+            <div class="previews">
+                <div class="p-box online" id="p1-box">
+                    <canvas id="c1"></canvas>
+                    <div class="label">ВЫ</div>
+                </div>
+                <div class="p-box" id="p2-box">
+                    <canvas id="c2"></canvas>
+                    <div class="label">ДРУГ</div>
+                </div>
             </div>
-            <div id="connection-status" style="font-size: 20px;">🤝</div>
-            <div class="preview-box empty" id="p2-box">
-                <div class="preview-label">ДРУГ</div>
-                <canvas id="p2-canvas" width="60" height="90"></canvas>
-            </div>
-        </div>
 
-        <div class="btn-group">
-            <button class="btn gold" id="start-game-btn">ИГРАТЬ (FULLSCREEN)</button>
-            <button class="btn" id="invite-btn" style="background: #34495e; border-color: #2c3e50;">СКОПИРОВАТЬ ССЫЛКУ</button>
-            <p id="status" style="color: #aaa; font-size: 7px; text-align: center; line-height: 1.5;">
-                ОЖИДАНИЕ ДРУГА...<br>(ID: <span id="my-id">...</span>)
-            </p>
+            <div id="btn-container">
+                <button class="btn gold" id="btn-invite">1. КОПИРОВАТЬ ССЫЛКУ</button>
+                <button class="btn" id="btn-start" style="opacity: 0.5;">2. ЖДЕМ ДРУГА...</button>
+            </div>
+            
+            <p id="status-text">ВАШ ID: <span id="my-id">...</span></p>
         </div>
     </div>
 
-    <div class="mobile-hud" id="hud">
-        <div id="chat-trigger">ЧАТ</div>
-        <div id="fs-toggle">FS</div>
+    <div class="hud" id="hud">
+        <div class="lvl-tag" id="lvl-display">LEVEL: 1</div>
         <div id="btn-l" class="grab-btn">ЛЕВАЯ</div>
         <div id="btn-r" class="grab-btn">ПРАВАЯ</div>
-        <div id="chat-wrapper"></div>
-        <div id="chat-input-box">
-            <input type="text" id="chat-input" placeholder="СООБЩЕНИЕ...">
-        </div>
     </div>
 
     <div id="game-container"></div>
 
 <script>
 /**
- * СИСТЕМА ФУЛЛСКРИНА И ОРИЕНТАЦИИ
- */
-async function enterFullscreen() {
-    try {
-        const doc = document.documentElement;
-        if (doc.requestFullscreen) await doc.requestFullscreen();
-        else if (doc.webkitRequestFullscreen) await doc.webkitRequestFullscreen();
-        
-        // Попытка заблокировать ориентацию
-        if (screen.orientation && screen.orientation.lock) {
-            await screen.orientation.lock('landscape').catch(e => console.log("Orientation lock failed"));
-        }
-    } catch (err) {
-        console.warn("Fullscreen error:", err);
-    }
-}
-
-function checkOrientation() {
-    const notice = document.getElementById('rotate-notice');
-    if (window.innerHeight > window.innerWidth) {
-        notice.style.display = 'flex';
-    } else {
-        notice.style.display = 'none';
-    }
-}
-window.addEventListener('resize', checkOrientation);
-checkOrientation();
-
-/**
- * СЕТЬ (PEERJS)
+ * СЕТЕВОЙ МОДУЛЬ
  */
 const myId = Math.floor(1000 + Math.random() * 9000).toString();
-let peer, conn;
+let peer, conn, isConnected = false;
 
-function initNetwork() {
-    peer = new Peer('TERRA-REACH-' + myId);
+function initPeer() {
+    peer = new Peer('TR-50LVL-' + myId);
+    
     peer.on('open', () => {
         document.getElementById('my-id').innerText = myId;
         const hash = window.location.hash.replace('#', '');
         if (hash && hash.length === 4) {
-            conn = peer.connect('TERRA-REACH-' + hash);
-            setupConnection();
+            connectTo(hash);
         }
     });
+
     peer.on('connection', c => {
         conn = c;
         setupConnection();
-        startOnlineGame();
     });
+}
+
+function connectTo(id) {
+    conn = peer.connect('TR-50LVL-' + id);
+    setupConnection();
 }
 
 function setupConnection() {
     conn.on('open', () => {
-        startOnlineGame();
+        isConnected = true;
+        document.getElementById('p2-box').classList.add('online');
+        document.getElementById('btn-start').innerText = "ИГРАТЬ (FULLSCREEN)";
+        document.getElementById('btn-start').style.opacity = "1";
+        document.getElementById('status-text').innerText = "СОЕДИНЕНО!";
+        document.getElementById('status-text').style.color = "#5da341";
+        
         conn.on('data', data => {
-            if (data.type === 'sync') window.gameScene?.syncRemote(data.payload);
-            if (data.type === 'chat') showChatMessage(data.msg, 'friend');
+            if (data.type === 'sync') window.gameScene?.onRemoteSync(data.state);
+            if (data.type === 'lvl') window.gameScene?.loadLevel(data.lvl);
         });
     });
 }
 
-document.getElementById('invite-btn').onclick = () => {
+document.getElementById('btn-invite').onclick = () => {
     const url = window.location.origin + window.location.pathname + '#' + myId;
     navigator.clipboard.writeText(url);
     alert("Ссылка скопирована! Отправь её другу.");
 };
 
-document.getElementById('start-game-btn').onclick = async () => {
-    await enterFullscreen();
-    if (conn && conn.open) {
-        startOnlineGame();
-    } else {
-        alert("Ожидайте подключения друга или отправьте ему ссылку!");
+document.getElementById('btn-start').onclick = async () => {
+    if (!isConnected) return;
+    if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen().catch(() => {});
+        if (screen.orientation?.lock) await screen.orientation.lock('landscape').catch(() => {});
     }
+    document.getElementById('menu-overlay').style.display = 'none';
+    document.getElementById('hud').style.display = 'block';
+    initGame();
 };
 
-document.getElementById('fs-toggle').onclick = enterFullscreen;
+/**
+ * ГРАФИКА ТЕРРАРИИ
+ */
+function createTextures(scene) {
+    const draw = (key, w, h, colors) => {
+        const canvas = scene.textures.createCanvas(key, w, h);
+        const ctx = canvas.getContext();
+        colors.forEach(c => {
+            ctx.fillStyle = c.color;
+            ctx.fillRect(c.x, c.y, c.w, c.h);
+        });
+        canvas.refresh();
+    };
 
-function showChatMessage(msg, sender) {
-    const wrap = document.getElementById('chat-wrapper');
-    const el = document.createElement('div');
-    el.className = 'message';
-    el.innerText = (sender === 'me' ? 'ВЫ: ' : 'ДРУГ: ') + msg;
-    wrap.prepend(el);
-    setTimeout(() => el.remove(), 5000);
+    // Блок земли
+    draw('dirt', 32, 32, [
+        {x:0, y:0, w:32, h:32, color:'#6d4c35'},
+        {x:0, y:0, w:32, h:8, color:'#5da341'}, // трава
+        {x:5, y:12, w:4, h:4, color:'#5a3d2a'}
+    ]);
+
+    // Шипы
+    draw('spikes', 32, 32, [
+        {x:0, y:20, w:32, h:12, color:'#444'},
+        {x:8, y:0, w:4, h:20, color:'#999'},
+        {x:20, y:0, w:4, h:20, color:'#999'}
+    ]);
 }
 
 /**
- * ИГРОВАЯ ЛОГИКА (PHASER)
+ * ИГРОВАЯ СЦЕНА
  */
-class GameScene extends Phaser.Scene {
-    constructor() { super('GameScene'); }
+class MainScene extends Phaser.Scene {
+    constructor() { super('MainScene'); }
 
     create() {
         window.gameScene = this;
-        this.matter.world.setBounds(0, -1000, 5000, 2000);
+        createTextures(this);
+        this.matter.world.setBounds(0, -2000, 10000, 4000);
+        this.level = 1;
         
-        // Текстуры
-        const dirt = this.add.renderTexture(0, 0, 32, 32).fill(0x6d4c35);
-        for(let i=0; i<20; i++) dirt.draw(this.add.rectangle(Math.random()*32, Math.random()*32, 2, 2, 0x5a3d2a));
-        dirt.saveTexture('dirt');
+        this.p1 = this.createPlayer(200, 400, 0x5da341, false);
+        this.p2 = this.createPlayer(250, 400, 0x3498db, true);
 
-        this.p1 = this.createRagdoll(200, 400, 0x5da341, false);
-        this.p2 = this.createRagdoll(240, 400, 0x3498db, true);
-        
-        this.setupMap();
-        this.setupCamera();
-    }
+        this.blocks = this.add.group();
+        this.loadLevel(this.level);
 
-    createRagdoll(x, y, color, isRemote) {
-        const group = this.matter.world.nextGroup(true);
-        const b = this.matter.add.rectangle(x, y, 22, 32, { collisionFilter: { group }, friction: 0.6 });
-        const h = this.matter.add.circle(x, y - 25, 10, { collisionFilter: { group } });
-        const la = this.matter.add.circle(x - 20, y, 8, { collisionFilter: { group }, friction: 1 });
-        const ra = this.matter.add.circle(x + 20, y, 8, { collisionFilter: { group }, friction: 1 });
-
-        this.matter.add.constraint(b, h, 0, 0.8, { pointA: {x:0, y:-16}, pointB: {x:0, y:10} });
-        this.matter.add.constraint(b, la, 40, 0.1, { pointA: {x:-10, y:-8} });
-        this.matter.add.constraint(b, ra, 40, 0.1, { pointA: {x:10, y:-8} });
-
-        return { body: b, head: h, lHand: la, rHand: ra, color, grabL: false, grabR: false, isRemote, g: this.add.graphics() };
-    }
-
-    setupMap() {
-        const addBlock = (x, y, w, h) => {
-            let b = this.add.tileSprite(x, y, w, h, 'dirt').setOrigin(0.5);
-            this.matter.add.gameObject(b, { isStatic: true });
-        };
-        addBlock(400, 600, 1000, 100);
-        addBlock(900, 450, 100, 300);
-        
-        this.goal = this.add.star(1200, 400, 5, 20, 40, 0xffff00);
-        this.matter.add.gameObject(this.goal, { isStatic: true, isSensor: true });
-    }
-
-    setupCamera() {
-        this.cameras.main.startFollow(this.p1.body, true, 0.1, 0.1);
-        this.cameras.main.setZoom(1.3);
+        this.cameras.main.startFollow(this.p1.torso, true, 0.1, 0.1);
+        this.cameras.main.setZoom(1.2);
         this.cameras.main.setBackgroundColor('#80a5ff');
+
+        this.setupMobileControls();
+    }
+
+    createPlayer(x, y, color, isRemote) {
+        const group = this.matter.world.nextGroup(true);
+        const torso = this.matter.add.rectangle(x, y, 24, 34, { collisionFilter: { group }, chamfer: 5, friction: 0.8 });
+        const head = this.matter.add.circle(x, y - 28, 11, { collisionFilter: { group } });
+        const lHand = this.matter.add.circle(x - 20, y, 8, { collisionFilter: { group }, friction: 1 });
+        const rHand = this.matter.add.circle(x + 20, y, 8, { collisionFilter: { group }, friction: 1 });
+
+        this.matter.add.constraint(torso, head, 0, 0.8, { pointA: {x:0, y:-18}, pointB: {x:0, y:12} });
+        this.matter.add.constraint(torso, lHand, 45, 0.1, { pointA: {x:-10, y:-10} });
+        this.matter.add.constraint(torso, rHand, 45, 0.1, { pointA: {x:10, y:-10} });
+
+        return { torso, head, lHand, rHand, color, grabL: false, grabR: false, isRemote, g: this.add.graphics() };
+    }
+
+    loadLevel(n) {
+        this.level = n;
+        document.getElementById('lvl-display').innerText = `LEVEL: ${n}`;
+        this.blocks.clear(true, true);
+        this.matter.world.localWorld.bodies.filter(b => b.isStatic && b.label !== 'bounds').forEach(b => this.matter.world.remove(b));
+
+        // Пол
+        this.addPlatform(200, 600, 600, 100);
+
+        // Генерация на основе уровня (50 уровней)
+        const seed = n * 12345;
+        for (let i = 1; i <= 5 + n; i++) {
+            const px = 600 + (i * (180 + n * 5));
+            const py = 600 - (Math.sin(seed + i) * 200);
+            const width = Math.max(150 - (n * 2), 60);
+            
+            if (i % 4 === 0 && n > 5) {
+                this.addSpikes(px, py - 30, width);
+            } else {
+                this.addPlatform(px, py, width, 40);
+            }
+        }
+
+        // Финиш
+        const fx = 800 + ((6 + n) * (180 + n * 5));
+        const finish = this.add.star(fx, 400, 5, 20, 40, 0xffff00);
+        this.matter.add.gameObject(finish, { isStatic: true, isSensor: true });
+        finish.setOnCollide(pair => {
+            if (pair.bodyA.gameObject === this.p1.torso.gameObject || pair.bodyB.gameObject === this.p1.torso.gameObject) {
+                this.nextLevel();
+            }
+        });
+        this.blocks.add(finish);
+    }
+
+    addPlatform(x, y, w, h) {
+        const b = this.add.tileSprite(x, y, w, h, 'dirt');
+        this.matter.add.gameObject(b, { isStatic: true });
+        this.blocks.add(b);
+    }
+
+    addSpikes(x, y, w) {
+        const b = this.add.tileSprite(x, y, w, 32, 'spikes');
+        const body = this.matter.add.gameObject(b, { isStatic: true });
+        body.setOnCollide(() => this.resetLevel());
+        this.blocks.add(b);
+    }
+
+    nextLevel() {
+        const next = this.level + 1;
+        this.loadLevel(next);
+        if (conn) conn.send({ type: 'lvl', lvl: next });
+    }
+
+    resetLevel() {
+        this.p1.torso.position.x = 200;
+        this.p1.torso.position.y = 400;
+        this.p1.torso.velocity.x = 0;
+        this.p1.torso.velocity.y = 0;
+    }
+
+    setupMobileControls() {
+        const btnL = document.getElementById('btn-l');
+        const btnR = document.getElementById('btn-r');
+        
+        btnL.onpointerdown = e => { e.preventDefault(); this.p1.grabL = !this.p1.grabL; btnL.classList.toggle('active'); };
+        btnR.onpointerdown = e => { e.preventDefault(); this.p1.grabR = !this.p1.grabR; btnR.classList.toggle('active'); };
     }
 
     update() {
-        this.handleInput();
-        this.syncP2P();
-        [this.p1, this.p2].forEach(p => {
-            this.processGrab(p);
-            this.drawRagdoll(p);
-        });
+        this.handlePlayerInput(this.p1);
+        this.processGrab(this.p1);
+        this.processGrab(this.p2);
+        this.drawPlayer(this.p1);
+        this.drawPlayer(this.p2);
+        this.sync();
     }
 
-    handleInput() {
-        const p = this.p1;
+    handlePlayerInput(p) {
         this.input.pointers.forEach(ptr => {
-            if(ptr.isDown && ptr.y < window.innerHeight - 100) {
+            if (ptr.isDown && ptr.y < window.innerHeight - 120) {
                 const hand = ptr.x < window.innerWidth / 2 ? p.lHand : p.rHand;
-                this.matter.applyForce(hand, { x: (ptr.x - ptr.downX) * 0.00015, y: (ptr.y - ptr.downY) * 0.00015 });
+                const forceX = (ptr.x - ptr.downX) * 0.00018;
+                const forceY = (ptr.y - ptr.downY) * 0.00018;
+                this.matter.applyForce(hand, { x: forceX, y: forceY });
             }
         });
     }
 
     processGrab(p) {
-        [{h: p.lHand, g: p.grabL, k: 'cL'}, {h: p.rHand, g: p.grabR, k: 'cR'}].forEach(s => {
+        const sides = [{h: p.lHand, g: p.grabL, k: 'cL'}, {h: p.rHand, g: p.grabR, k: 'cR'}];
+        sides.forEach(s => {
             if (s.g && !p[s.k]) {
-                const targets = this.matter.world.localWorld.bodies.filter(b => b !== s.h && b !== p.body);
-                const hit = targets.find(t => Phaser.Math.Distance.Between(s.h.position.x, s.h.position.y, t.position.x, t.position.y) < 25);
+                const bodies = this.matter.world.localWorld.bodies.filter(b => b !== s.h && b !== p.torso && b !== p.head);
+                const hit = bodies.find(b => Phaser.Math.Distance.Between(s.h.position.x, s.h.position.y, b.position.x, b.position.y) < 25);
                 if (hit) p[s.k] = this.matter.add.constraint(s.h, hit, 0, 1);
             } else if (!s.g && p[s.k]) {
                 this.matter.world.removeConstraint(p[s.k]);
@@ -321,24 +329,32 @@ class GameScene extends Phaser.Scene {
         });
     }
 
-    drawRagdoll(p) {
+    drawPlayer(p) {
         const g = p.g; g.clear();
         const skin = p.isRemote ? 0xd1c4e9 : 0xffdbac;
-        g.fillStyle(skin); g.fillCircle(p.head.position.x, p.head.position.y, 10);
+        
+        // Голова
+        g.fillStyle(skin); g.fillCircle(p.head.position.x, p.head.position.y, 11);
+        g.fillStyle(0x000); g.fillRect(p.head.position.x+2, p.head.position.y-3, 2, 3);
+
+        // Тело
         g.fillStyle(p.color);
-        g.save(); g.translateCanvas(p.body.position.x, p.body.position.y); g.rotate(p.body.angle);
-        g.fillRect(-11, -16, 22, 32); g.restore();
-        g.lineStyle(5, skin);
-        g.lineBetween(p.body.position.x, p.body.position.y - 8, p.lHand.position.x, p.lHand.position.y);
-        g.lineBetween(p.body.position.x, p.body.position.y - 8, p.rHand.position.x, p.rHand.position.y);
+        g.save(); g.translateCanvas(p.torso.position.x, p.torso.position.y); g.rotate(p.torso.angle);
+        g.fillRect(-12, -17, 24, 34); g.restore();
+
+        // Руки
+        g.lineStyle(6, skin);
+        g.lineBetween(p.torso.position.x, p.torso.position.y - 10, p.lHand.position.x, p.lHand.position.y);
+        g.lineBetween(p.torso.position.x, p.torso.position.y - 10, p.rHand.position.x, p.rHand.position.y);
+        
         g.fillStyle(p.grabL ? 0xffff00 : skin); g.fillCircle(p.lHand.position.x, p.lHand.position.y, 8);
         g.fillStyle(p.grabR ? 0xffff00 : skin); g.fillCircle(p.rHand.position.x, p.rHand.position.y, 8);
     }
 
-    syncP2P() {
+    sync() {
         if (conn?.open) {
-            conn.send({ type: 'sync', payload: {
-                bx: this.p1.body.position.x, by: this.p1.body.position.y, ba: this.p1.body.angle,
+            conn.send({ type: 'sync', state: {
+                tx: this.p1.torso.position.x, ty: this.p1.torso.position.y, ta: this.p1.torso.angle,
                 hx: this.p1.head.position.x, hy: this.p1.head.position.y,
                 lx: this.p1.lHand.position.x, ly: this.p1.lHand.position.y,
                 rx: this.p1.rHand.position.x, ry: this.p1.rHand.position.y,
@@ -347,50 +363,46 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    syncRemote(d) {
+    onRemoteSync(s) {
         const p = this.p2;
-        this.matter.body.setPosition(p.body, {x:d.bx, y:d.by}); this.matter.body.setAngle(p.body, d.ba);
-        this.matter.body.setPosition(p.head, {x:d.hx, y:d.hy});
-        this.matter.body.setPosition(p.lHand, {x:d.lx, y:d.ly});
-        this.matter.body.setPosition(p.rHand, {x:d.rx, y:d.ry});
-        p.grabL = d.gl; p.grabR = d.gr;
+        this.matter.body.setPosition(p.torso, {x: s.tx, y: s.ty});
+        this.matter.body.setAngle(p.torso, s.ta);
+        this.matter.body.setPosition(p.head, {x: s.hx, y: s.hy});
+        this.matter.body.setPosition(p.lHand, {x: s.lx, y: s.ly});
+        this.matter.body.setPosition(p.rHand, {x: s.rx, y: s.ry});
+        p.grabL = s.gl; p.grabR = s.gr;
     }
 }
 
-/**
- * ЗАПУСК
- */
-function startOnlineGame() {
-    document.getElementById('p2-box').classList.remove('empty');
-    document.getElementById('menu-overlay').style.transform = 'translateY(-100%)';
-    document.getElementById('hud').style.display = 'block';
-    if(!window.game) window.game = new Phaser.Game({
+function initGame() {
+    new Phaser.Game({
         type: Phaser.AUTO, parent: 'game-container',
-        width: Math.max(window.innerWidth, window.innerHeight), 
-        height: Math.min(window.innerWidth, window.innerHeight),
+        width: window.innerWidth, height: window.innerHeight,
         physics: { default: 'matter', matter: { gravity: { y: 1.2 }, debug: false } },
-        scene: GameScene
+        scene: MainScene
     });
 }
 
-document.getElementById('btn-l').onpointerdown = e => { e.preventDefault(); window.gameScene.p1.grabL = !window.gameScene.p1.grabL; document.getElementById('btn-l').classList.toggle('active'); };
-document.getElementById('btn-r').onpointerdown = e => { e.preventDefault(); window.gameScene.p1.grabR = !window.gameScene.p1.grabR; document.getElementById('btn-r').classList.toggle('active'); };
-
-document.getElementById('chat-trigger').onclick = () => { document.getElementById('chat-input-box').style.display = 'block'; document.getElementById('chat-input').focus(); };
-document.getElementById('chat-input').onkeydown = e => {
-    if(e.key === 'Enter' && e.target.value) {
-        conn?.send({ type: 'chat', msg: e.target.value });
-        showChatMessage(e.target.value, 'me');
-        e.target.value = ''; document.getElementById('chat-input-box').style.display = 'none';
-    }
-};
-
+/**
+ * ПРОВЕРКА ОРИЕНТАЦИИ
+ */
+function checkOrientation() {
+    const msg = document.getElementById('rotate-msg');
+    if (window.innerHeight > window.innerWidth) msg.style.display = 'flex';
+    else msg.style.display = 'none';
+}
+window.addEventListener('resize', checkOrientation);
 window.onload = () => {
-    initNetwork();
-    const c1 = document.getElementById('p1-canvas').getContext('2d');
-    c1.fillStyle = '#5da341'; c1.fillRect(15, 30, 30, 45); c1.fillStyle = '#ffdbac'; c1.beginPath(); c1.arc(30, 20, 12, 0, 7); c1.fill();
-    const c2 = document.getElementById('p2-canvas').getContext('2d');
-    c2.fillStyle = '#3498db'; c2.fillRect(15, 30, 30, 45); c2.fillStyle = '#d1c4e9'; c2.beginPath(); c2.arc(30, 20, 12, 0, 7); c2.fill();
+    initPeer();
+    checkOrientation();
+    // Рисуем превью персонажей
+    const drawP = (id, color) => {
+        const ctx = document.getElementById(id).getContext('2d');
+        ctx.fillStyle = color; ctx.fillRect(15, 30, 40, 50);
+        ctx.fillStyle = '#ffdbac'; ctx.beginPath(); ctx.arc(35, 20, 15, 0, 7); ctx.fill();
+    };
+    drawP('c1', '#5da341');
+    drawP('c2', '#3498db');
 };
 </script>
 </body>
