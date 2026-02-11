@@ -1,489 +1,328 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Boundless Bonds | P2P Ragdoll Co-op</title>
-    
-    <!-- CDNs -->
+    <title>GLOW-BOUND: Aether Link</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --neon-blue: #00f2ff;
-            --neon-pink: #ff00e5;
-            --bg-dark: #0a0a12;
-        }
+        :root { --neon: #00ff9d; --pink: #ff0077; --bg: #0d0221; }
+        body, html { margin: 0; padding: 0; background: var(--bg); overflow: hidden; font-family: 'Press Start 2P', cursive; touch-action: none; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .pointer { pointer-events: auto; }
+        
+        /* Меню в стиле Terraria */
+        #main-menu { position: absolute; inset: 0; background: rgba(13, 2, 33, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; border: 4px solid var(--neon); }
+        .menu-card { background: #1a1a2e; padding: 20px; border: 4px solid #4d4dff; box-shadow: 10px 10px 0px #000; text-align: center; max-width: 90%; }
+        h1 { color: var(--neon); font-size: 18px; text-shadow: 4px 4px 0px #ff0077; margin-bottom: 30px; }
+        .btn { background: #4d4dff; color: white; border: none; padding: 15px; margin: 10px; cursor: pointer; font-family: 'Press Start 2P'; font-size: 10px; border-bottom: 4px solid #222266; width: 100%; }
+        .btn:active { border-bottom: 0; transform: translateY(4px); }
+        input { background: #000; border: 2px solid var(--neon); color: var(--neon); padding: 10px; font-family: 'Press Start 2P'; font-size: 10px; width: 80%; margin: 10px 0; outline: none; }
 
-        body, html {
-            margin: 0; padding: 0;
-            width: 100%; height: 100%;
-            background: var(--bg-dark);
-            color: white;
-            font-family: 'Rajdhani', sans-serif;
-            overflow: hidden;
-            touch-action: none;
-        }
-
-        #game-container { width: 100%; height: 100%; }
-
-        /* UI Overlays */
-        .overlay {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            background: rgba(10, 10, 18, 0.9);
-            z-index: 10;
-            transition: opacity 0.5s;
-        }
-
-        .hidden { display: none !important; opacity: 0; pointer-events: none; }
-
-        .menu-card {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 2rem;
-            border-radius: 20px;
-            border: 1px solid var(--neon-blue);
-            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
-            text-align: center;
-            width: 80%; max-width: 400px;
-        }
-
-        h1 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-bottom: 1rem; color: var(--neon-blue); text-shadow: 0 0 10px var(--neon-blue); }
-
-        .btn {
-            background: transparent;
-            border: 1px solid var(--neon-blue);
-            color: var(--neon-blue);
-            padding: 12px 24px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            margin: 10px;
-            border-radius: 5px;
-            transition: 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .btn:hover { background: var(--neon-blue); color: black; box-shadow: 0 0 20px var(--neon-blue); }
-
-        .input-field {
-            background: rgba(0,0,0,0.5);
-            border: 1px solid #444;
-            color: white;
-            padding: 10px;
-            width: 100%;
-            margin-bottom: 15px;
-            text-align: center;
-            font-size: 1.2rem;
-        }
-
-        /* In-game UI */
-        #hud {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 5; display: none;
-        }
-
-        .joystick-area {
-            position: absolute; bottom: 20px;
-            width: 150px; height: 150px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 50%;
-            border: 2px dashed rgba(0, 242, 255, 0.3);
-            pointer-events: auto;
-        }
-        #left-joy { left: 20px; }
-        #right-joy { right: 20px; }
-
-        .grab-btn {
-            position: absolute; bottom: 180px;
-            width: 70px; height: 70px;
-            background: rgba(255, 0, 229, 0.3);
-            border: 2px solid var(--neon-pink);
-            border-radius: 50%;
-            color: white; font-weight: bold;
-            display: flex; align-items: center; justify-content: center;
-            pointer-events: auto;
-        }
-        #grab-l { left: 60px; }
-        #grab-r { right: 60px; }
-        .grabbing { background: var(--neon-pink) !important; box-shadow: 0 0 20px var(--neon-pink); }
-
-        /* Chat & Notifications */
-        #chat-box {
-            position: absolute; top: 10px; left: 10px;
-            width: 250px; height: 150px;
-            background: rgba(0,0,0,0.4);
-            pointer-events: auto;
-            display: flex; flex-direction: column;
-            border-radius: 10px; font-size: 0.8rem;
-        }
-        #chat-messages { flex: 1; overflow-y: auto; padding: 5px; }
-        #chat-input { background: transparent; border: none; border-top: 1px solid #333; color: white; padding: 5px; }
-
-        #notification {
-            position: absolute; top: 20px; right: -300px;
-            width: 250px; background: var(--neon-blue);
-            color: black; padding: 15px; border-radius: 10px 0 0 10px;
-            transition: 0.5s; z-index: 100;
-        }
+        /* Игровой интерфейс */
+        #hud { position: absolute; top: 10px; left: 10px; width: calc(100% - 20px); display: none; justify-content: space-between; }
+        #chat-area { position: absolute; bottom: 120px; left: 10px; width: 200px; height: 100px; background: rgba(0,0,0,0.5); font-size: 8px; overflow-y: auto; color: #fff; padding: 5px; border-radius: 5px; }
+        #sms-pop { position: absolute; top: -100px; right: 20px; width: 200px; background: var(--pink); border: 3px solid white; padding: 10px; font-size: 8px; transition: 0.5s; z-index: 200; color: white; }
+        
+        /* Джойстики */
+        .joy-container { position: absolute; bottom: 20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid var(--neon); }
+        #joy-left { left: 20px; } #joy-right { right: 20px; }
+        .grab-btn { position: absolute; bottom: 150px; width: 60px; height: 60px; border-radius: 50%; background: var(--pink); border: 3px solid white; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; }
+        #btn-l { left: 50px; } #btn-r { right: 50px; }
+        .grabbing { background: #00ff00 !important; box-shadow: 0 0 15px #00ff00; }
+        
+        .clan-tag { font-size: 8px; color: #aaa; margin-top: 10px; }
+        .online-list { margin-top: 15px; text-align: left; font-size: 7px; color: var(--neon); }
     </style>
 </head>
 <body>
 
-    <!-- Main Menu -->
-    <div id="main-menu" class="overlay">
+<div id="ui-layer">
+    <div id="main-menu" class="pointer">
         <div class="menu-card">
-            <h1>BOUNDLESS BONDS</h1>
-            <p>Your ID: <span id="my-id" style="color:var(--neon-pink)">----</span></p>
-            <input type="text" id="friend-id" class="input-field" placeholder="Enter Friend's 4-Digit ID">
-            <button class="btn" onclick="connectToFriend()">Connect Friend</button>
-            <div style="margin-top:20px; font-size: 0.8rem; opacity: 0.7;">
-                CLAN: NEON RUNNERS [Level 12]
+            <h1>GLOW-BOUND</h1>
+            <div id="my-id-display" style="color: #fff; font-size: 10px; margin-bottom: 10px;">ID: ----</div>
+            <input type="text" id="friend-id" placeholder="ID ДРУГА (4 ЦИФРЫ)">
+            <button class="btn" onclick="connectToPeer()">СОЕДИНИТЬСЯ</button>
+            <button class="btn" onclick="copyInviteLink()" style="background: #ff0077;">КОПИРОВАТЬ ССЫЛКУ</button>
+            <div class="clan-tag">КЛАН: [PIXEL_LORDS]</div>
+            <div class="online-list">
+                ОНЛАЙН:<br>
+                • Player_9912 (В бою)<br>
+                • NeonRebel (Меню)
             </div>
-            <button class="btn" style="font-size: 0.8rem; border-color: #555;" onclick="copyInviteLink()">Copy Invite Link</button>
         </div>
     </div>
 
-    <!-- HUD -->
     <div id="hud">
-        <div id="left-joy" class="joystick-area"></div>
-        <div id="right-joy" class="joystick-area"></div>
-        <div id="grab-l" class="grab-btn">L-GRAB</div>
-        <div id="grab-r" class="grab-btn">R-GRAB</div>
-
-        <div id="chat-box">
-            <div id="chat-messages"></div>
-            <input type="text" id="chat-input" placeholder="Type message...">
-        </div>
+        <div style="color: var(--neon); font-size: 10px;">LEVEL: <span id="lv-num">1</span>/50</div>
+        <div style="color: white; font-size: 10px;">ID: <span id="partner-status">ALONE</span></div>
     </div>
 
-    <div id="notification">New Invite Received!</div>
+    <div id="sms-pop">
+        <b>SMS:</b> <span id="sms-msg">Приглашение принято!</span>
+    </div>
 
-    <div id="game-container"></div>
+    <div id="chat-area"></div>
+    <input type="text" id="chat-in" class="pointer" style="position:absolute; bottom:120px; left:220px; width:100px; display:none;" placeholder="CHAT...">
 
-    <script>
-        /** 
-         * GLOBAL CONFIG & STATE 
-         **/
-        const config = {
-            type: Phaser.AUTO,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            backgroundColor: '#0a0a12',
-            parent: 'game-container',
-            physics: {
-                default: 'matter',
-                matter: { gravity: { y: 1 }, debug: false, enableSleeping: true }
-            },
-            scene: { preload: preload, create: create, update: update }
-        };
+    <div id="joy-left" class="joy-container pointer"></div>
+    <div id="joy-right" class="joy-container pointer"></div>
+    <div id="btn-l" class="grab-btn pointer">L-GRAB</div>
+    <div id="btn-r" class="grab-btn pointer">R-GRAB</div>
+</div>
 
-        const game = new Phaser.Game(config);
-        let peer, conn;
-        let myId = "";
-        let player, remotePlayer;
-        let cursors, scene;
-        let isHost = false;
-        let currentLevel = 1;
-        let gameActive = false;
+<div id="game-container"></div>
 
-        const gameState = {
-            p1: { x: 100, y: 100, lh: 0, rh: 0, lg: false, rg: false },
-            p2: { x: 150, y: 100, lh: 0, rh: 0, lg: false, rg: false }
-        };
+<script>
+/** --- CONFIG & NETWORKING --- **/
+let peer, conn, myShortId;
+let isHost = false;
+let gameStarted = false;
 
-        /**
-         * NETWORKING LOGIC
-         */
-        function initNetwork() {
-            // Generate a 4-digit ID based on random string
-            const shortId = Math.floor(1000 + Math.random() * 9000).toString();
-            peer = new Peer('bond-' + shortId);
+function initNetwork() {
+    myShortId = Math.floor(1000 + Math.random() * 9000).toString();
+    peer = new Peer('glow-' + myShortId);
+    
+    peer.on('open', (id) => {
+        document.getElementById('my-id-display').innerText = "ВАШ ID: " + myShortId;
+        checkAutoJoin();
+    });
 
-            peer.on('open', (id) => {
-                myId = id.split('-')[1];
-                document.getElementById('my-id').innerText = myId;
-                checkUrlParams();
-            });
+    peer.on('connection', (c) => {
+        conn = c;
+        isHost = true;
+        setupConnection();
+    });
+}
 
-            peer.on('connection', (connection) => {
-                conn = connection;
-                isHost = true;
-                setupConnection();
-            });
-        }
+function connectToPeer() {
+    const friendId = document.getElementById('friend-id').value;
+    if(friendId) {
+        conn = peer.connect('glow-' + friendId);
+        isHost = false;
+        setupConnection();
+    }
+}
 
-        function connectToFriend() {
-            const id = document.getElementById('friend-id').value;
-            if (id) {
-                conn = peer.connect('bond-' + id);
-                isHost = false;
-                setupConnection();
-            }
-        }
+function setupConnection() {
+    conn.on('open', () => {
+        showSMS("ПАРТНЕР ПОДКЛЮЧИЛСЯ!");
+        document.getElementById('main-menu').style.display = 'none';
+        document.getElementById('hud').style.display = 'flex';
+        document.getElementById('chat-in').style.display = 'block';
+        gameStarted = true;
+        if(isHost) conn.send({type: 'START', lv: 1});
+    });
 
-        function setupConnection() {
-            conn.on('open', () => {
-                showNotification("Connected to Partner!");
-                document.getElementById('main-menu').classList.add('hidden');
-                document.getElementById('hud').style.display = 'block';
-                gameActive = true;
-                if(isHost) {
-                    conn.send({ type: 'START_LEVEL', level: currentLevel });
-                }
-            });
+    conn.on('data', (data) => {
+        if(data.type === 'SYNC') handleSync(data.state);
+        if(data.type === 'START') startGame(data.lv);
+        if(data.type === 'CHAT') addChat(data.msg, 'Partner');
+    });
+}
 
-            conn.on('data', (data) => {
-                if (data.type === 'SYNC') {
-                    if (remotePlayer) updateRemotePlayer(data.state);
-                } else if (data.type === 'CHAT') {
-                    addChatMessage("Partner", data.msg);
-                } else if (data.type === 'START_LEVEL') {
-                    currentLevel = data.level;
-                    startNewLevel();
-                }
-            });
-        }
+function checkAutoJoin() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinId = urlParams.get('join');
+    if(joinId) {
+        document.getElementById('friend-id').value = joinId;
+        setTimeout(connectToPeer, 1000);
+    }
+}
 
-        function checkUrlParams() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const joinId = urlParams.get('join');
-            if (joinId) {
-                document.getElementById('friend-id').value = joinId;
-                setTimeout(connectToFriend, 1000);
-            }
-        }
+function copyInviteLink() {
+    const link = window.location.origin + window.location.pathname + "?join=" + myShortId;
+    navigator.clipboard.writeText(link);
+    showSMS("ССЫЛКА СКОПИРОВАНА!");
+}
 
-        function copyInviteLink() {
-            const link = window.location.origin + window.location.pathname + "?join=" + myId;
-            navigator.clipboard.writeText(link);
-            showNotification("Link Copied to Clipboard!");
-        }
+/** --- PHASER GAME LOGIC --- **/
+const config = {
+    type: Phaser.AUTO,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    physics: { default: 'matter', matter: { gravity: { y: 1.2 }, debug: false } },
+    scene: { preload: preload, create: create, update: update }
+};
 
-        /**
-         * PHASER CORE
-         */
-        function preload() {
-            scene = this;
-            // Create base64 textures programmatically
-            const graphics = this.make.graphics({ x: 0, y: 0, add: false });
-            
-            // Human Body Part
-            graphics.fillStyle(0x00f2ff, 1);
-            graphics.fillRoundedRect(0, 0, 20, 40, 10);
-            graphics.generateTexture('body', 20, 40);
-            
-            // Head
-            graphics.clear();
-            graphics.fillStyle(0xffffff, 1);
-            graphics.fillCircle(10, 10, 10);
-            graphics.generateTexture('head', 20, 20);
+const game = new Phaser.Game(config);
+let scene, p1, p2, levelManager;
 
-            // Arm
-            graphics.clear();
-            graphics.fillStyle(0x00f2ff, 0.8);
-            graphics.fillRoundedRect(0, 0, 8, 25, 4);
-            graphics.generateTexture('arm', 8, 25);
-        }
+function preload() {
+    scene = this;
+    // Рисуем текстуры программно (стиль Террарии)
+    const drawPixel = (key, color, w, h) => {
+        let g = this.make.graphics({x:0, y:0, add:false});
+        g.fillStyle(color, 1);
+        g.fillRect(0,0,w,h);
+        g.lineStyle(2, 0xffffff, 0.3);
+        g.strokeRect(0,0,w,h);
+        g.generateTexture(key, w, h);
+    };
 
-        function create() {
-            this.matter.world.setBounds(0, -2000, 4000, 3000);
-            
-            initNetwork();
-            setupChat();
-            setupJoysticks();
-        }
+    drawPixel('block_dirt', 0x5d4037, 40, 40);
+    drawPixel('block_grass', 0x2e7d32, 40, 40);
+    drawPixel('block_stone', 0x616161, 40, 40);
+    drawPixel('block_water', 0x0288d1, 40, 40);
+    drawPixel('p_body', 0x00ff9d, 20, 35);
+    drawPixel('p_head', 0xffffff, 15, 15);
+    drawPixel('p_arm', 0x00ff9d, 8, 25);
+}
 
-        function startNewLevel() {
-            scene.matter.world.clear();
-            createLevel(currentLevel);
-            player = createRagdoll(200, 500, 0x00f2ff);
-            remotePlayer = createRagdoll(250, 500, 0xff00e5);
-        }
+function create() {
+    this.matter.world.setBounds(0, -5000, 10000, 6000);
+    initNetwork();
+    
+    // Фоновые звезды
+    for(let i=0; i<100; i++) {
+        this.add.circle(Phaser.Math.Between(0, 4000), Phaser.Math.Between(-1000, 1000), 1, 0xffffff, 0.5);
+    }
+}
 
-        function update() {
-            if (!gameActive || !player) return;
+/** РЕГДОЛЛ ПЕРСОНАЖ **/
+function createRagdoll(x, y, color) {
+    const M = scene.matter;
+    const group = M.world.nextGroup(true);
 
-            handleInput();
-            syncData();
-            
-            // Camera follow
-            if (remotePlayer) {
-                const centerX = (player.body.position.x + remotePlayer.body.position.x) / 2;
-                const centerY = (player.body.position.y + remotePlayer.body.position.y) / 2;
-                scene.cameras.main.lerp(centerX, centerY, 0.1);
-            }
-        }
+    const head = M.add.image(x, y-40, 'p_head').setCircle(8).setCollisionGroup(group);
+    const body = M.add.image(x, y, 'p_body').setRectangle(20, 35).setCollisionGroup(group);
+    const lArm = M.add.image(x-15, y, 'p_arm').setRectangle(8, 25).setCollisionGroup(group);
+    const rArm = M.add.image(x+15, y, 'p_arm').setRectangle(8, 25).setCollisionGroup(group);
 
-        /**
-         * PHYSICS & RAGDOLL
-         */
-        function createRagdoll(x, y, color) {
-            const M = scene.matter;
-            
-            const head = M.add.image(x, y - 50, 'head').setScale(1);
-            const body = M.add.image(x, y, 'body').setScale(1);
-            const lArm = M.add.image(x - 20, y, 'arm');
-            const rArm = M.add.image(x + 20, y, 'arm');
-            
-            head.setCircle(10).setFriction(0.5);
-            body.setRectangle(20, 40).setFriction(0.5);
-            lArm.setRectangle(8, 25);
-            rArm.setRectangle(8, 25);
+    M.add.constraint(head, body, 5, 0.5, { pointA: {x:0, y:8}, pointB: {x:0, y:-18} });
+    M.add.constraint(body, lArm, 2, 0.5, { pointA: {x:-10, y:-10}, pointB: {x:0, y:-10} });
+    M.add.constraint(body, rArm, 2, 0.5, { pointA: {x:10, y:-10}, pointB: {x:0, y:-10} });
 
-            // Connect Head to Body
-            M.add.constraint(head, body, 10, 0.8, { pointA: { x: 0, y: 10 }, pointB: { x: 0, y: -20 } });
-            
-            // Arms
-            const lShoulder = M.add.constraint(body, lArm, 5, 0.8, { pointA: { x: -10, y: -15 }, pointB: { x: 0, y: -10 } });
-            const rShoulder = M.add.constraint(body, rArm, 5, 0.8, { pointA: { x: 10, y: -15 }, pointB: { x: 0, y: -10 } });
+    return { head, body, lArm, rArm, lG: null, rG: null };
+}
 
-            return { head, body, lArm, rArm, color, lGrab: null, rGrab: null };
-        }
+/** LEVEL MANAGER (50 Levels) **/
+const Levels = {
+    1: { name: "Начало", theme: 'grass', data: [[0,10,20], [20,8,5], [40,10,10]] },
+    2: { name: "Скалы", theme: 'stone', data: [[0,12,10], [15,10,2], [25,8,2], [35,6,2]] },
+    3: { name: "Вода", theme: 'water', data: [[0,15,50], [10,12,5]] }
+    // Остальные 47 уровней генерируются алгоритмом ниже
+};
 
-        /**
-         * LEVEL GENERATION
-         */
-        function createLevel(lv) {
-            const M = scene.matter;
-            // Floor
-            M.add.rectangle(2000, 1000, 4000, 100, { isStatic: true, render: { fillStyle: '#1a1a2e' } });
+function buildLevel(num) {
+    const theme = num % 3 === 0 ? 'block_water' : (num % 2 === 0 ? 'block_stone' : 'block_grass');
+    const blocks = scene.matter.add.group();
+    
+    // Пол
+    scene.matter.add.rectangle(2000, 1200, 4000, 100, { isStatic: true, render: { fillStyle: 0x111111 } });
 
-            if (lv === 1) { // Basic Climbing
-                M.add.rectangle(500, 800, 50, 400, { isStatic: true, render: { fillStyle: '#333' } });
-                M.add.rectangle(700, 600, 50, 400, { isStatic: true, render: { fillStyle: '#333' } });
-            } else if (lv === 2) { // Platforms
-                const plat = M.add.rectangle(600, 800, 200, 20, { isStatic: true, render: { fillStyle: '#00f2ff' } });
-                // Animating platform logic would go here
-            } else if (lv === 3) { // Water
-                const water = scene.add.rectangle(1000, 800, 1000, 400, 0x0044ff, 0.3);
-                // Buoyancy logic in update
-            }
-            
-            // Goal
-            const goal = M.add.rectangle(3500, 500, 100, 100, { isStatic: true, isSensor: true, render: { fillStyle: '#00ff00' } });
-        }
+    // Генерация на основе номера уровня (псевдо-рандом)
+    for(let i=0; i < 20 + num; i++) {
+        let bx = i * 120;
+        let by = 1000 - (Math.sin(i * 0.5 + num) * 200);
+        let block = scene.matter.add.image(bx, by, theme, null, { isStatic: true });
+        if(num > 5 && i % 4 === 0) block.setAngle(45);
+    }
+    
+    // Финиш
+    const goal = scene.matter.add.rectangle(3800, 800, 100, 200, { isStatic: true, isSensor: true });
+}
 
-        /**
-         * INPUT & INTERACTION
-         */
-        let joyL = { x: 0, y: 0 }, joyR = { x: 0, y: 0 };
-        let grabL = false, grabR = false;
+function startGame(lv) {
+    if(p1) return; // Чтобы не дублировать
+    buildLevel(lv);
+    p1 = createRagdoll(200, 800, 0x00ff9d);
+    p2 = createRagdoll(300, 800, 0xff0077);
+    scene.cameras.main.startFollow(p1.body, true, 0.1, 0.1);
+    setupInput();
+}
 
-        function setupJoysticks() {
-            // Virtual Joystick Implementation (Simplified for logic)
-            const handleTouch = (id, target) => {
-                const el = document.getElementById(id);
-                el.addEventListener('touchstart', (e) => {
-                    if (id.includes('grab')) {
-                        toggleGrab(id === 'grab-l' ? 'L' : 'R');
-                    }
-                });
-                // Movement logic...
-            };
-            
-            handleTouch('grab-l');
-            handleTouch('grab-r');
+/** УПРАВЛЕНИЕ И ГРАББИНГ **/
+function setupInput() {
+    const toggleGrab = (side) => {
+        const hand = side === 'L' ? p1.lArm : p1.rArm;
+        const current = side === 'L' ? p1.lG : p1.rG;
 
-            // Keyboard fallback
-            cursors = scene.input.keyboard.createCursorKeys();
-        }
-
-        function toggleGrab(side) {
-            const hand = side === 'L' ? player.lArm : player.rArm;
-            const existing = side === 'L' ? player.lGrab : player.rGrab;
-
-            if (existing) {
-                scene.matter.world.removeConstraint(existing);
-                if(side === 'L') player.lGrab = null; else player.rGrab = null;
-                document.getElementById('grab-' + side.toLowerCase()).classList.remove('grabbing');
-            } else {
-                // Check for nearby bodies to grab
-                const bodies = scene.matter.world.localWorld.bodies;
-                bodies.forEach(body => {
-                    if (body === hand.body || body === player.body.body) return;
-                    const dist = Phaser.Math.Distance.Between(hand.x, hand.y, body.position.x, body.position.y);
-                    if (dist < 40) {
-                        const c = scene.matter.add.constraint(hand, body, 5, 0.9);
-                        if(side === 'L') player.lGrab = c; else player.rGrab = c;
-                        document.getElementById('grab-' + side.toLowerCase()).classList.add('grabbing');
-                    }
-                });
-            }
-        }
-
-        function handleInput() {
-            // Apply forces to hands based on joysticks/keys
-            const force = 0.005;
-            if (cursors.left.isDown) player.lArm.applyForce({ x: -force, y: -force });
-            if (cursors.right.isDown) player.rArm.applyForce({ x: force, y: -force });
-            
-            // Simple keyboard grab toggle for testing
-            scene.input.keyboard.once('keydown-Q', () => toggleGrab('L'));
-            scene.input.keyboard.once('keydown-E', () => toggleGrab('R'));
-        }
-
-        /**
-         * NETWORKING DATA SYNC
-         */
-        function syncData() {
-            if (conn && conn.open) {
-                const state = {
-                    hx: player.head.x, hy: player.head.y,
-                    bx: player.body.x, by: player.body.y, br: player.body.rotation,
-                    lax: player.lArm.x, lay: player.lArm.y, lar: player.lArm.rotation,
-                    rax: player.rArm.x, ray: player.rArm.y, rar: player.rArm.rotation
-                };
-                conn.send({ type: 'SYNC', state });
-            }
-        }
-
-        function updateRemotePlayer(s) {
-            remotePlayer.head.setPosition(s.hx, s.hy);
-            remotePlayer.body.setPosition(s.bx, s.by);
-            remotePlayer.body.setRotation(s.br);
-            remotePlayer.lArm.setPosition(s.lax, s.lay);
-            remotePlayer.lArm.setRotation(s.lar);
-            remotePlayer.rArm.setPosition(s.rax, s.ray);
-            remotePlayer.rArm.setRotation(s.rar);
-        }
-
-        /**
-         * UI HELPERS
-         */
-        function setupChat() {
-            const input = document.getElementById('chat-input');
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && input.value) {
-                    addChatMessage("You", input.value);
-                    if (conn) conn.send({ type: 'CHAT', msg: input.value });
-                    input.value = "";
+        if (current) {
+            scene.matter.world.removeConstraint(current);
+            if(side === 'L') p1.lG = null; else p1.rG = null;
+            document.getElementById('btn-'+side.toLowerCase()).classList.remove('grabbing');
+        } else {
+            const bodies = scene.matter.world.localWorld.bodies;
+            bodies.forEach(b => {
+                if(b === p1.body.body || b === hand.body) return;
+                let dist = Phaser.Math.Distance.Between(hand.x, hand.y, b.position.x, b.position.y);
+                if(dist < 35) {
+                    const c = scene.matter.add.constraint(hand, b, 5, 0.8);
+                    if(side === 'L') p1.lG = c; else p1.rG = c;
+                    document.getElementById('btn-'+side.toLowerCase()).classList.add('grabbing');
                 }
             });
         }
+    };
 
-        function addChatMessage(sender, msg) {
-            const box = document.getElementById('chat-messages');
-            box.innerHTML += `<div><b>${sender}:</b> ${msg}</div>`;
-            box.scrollTop = box.scrollHeight;
+    document.getElementById('btn-l').onclick = () => toggleGrab('L');
+    document.getElementById('btn-r').onclick = () => toggleGrab('R');
+
+    // Chat
+    document.getElementById('chat-in').addEventListener('keydown', (e) => {
+        if(e.key === 'Enter') {
+            const m = e.target.value;
+            addChat(m, 'You');
+            conn.send({type: 'CHAT', msg: m});
+            e.target.value = '';
         }
+    });
+}
 
-        function showNotification(text) {
-            const n = document.getElementById('notification');
-            n.innerText = text;
-            n.style.right = '0px';
-            setTimeout(() => { n.style.right = '-300px'; }, 3000);
+let leftForce = {x:0, y:0}, rightForce = {x:0, y:0};
+
+function update() {
+    if(!gameStarted || !p1) return;
+
+    // Чтение джойстиков (симуляция)
+    if(scene.input.activePointer.isDown) {
+        const px = scene.input.activePointer.x;
+        if(px < window.innerWidth/2) {
+            p1.lArm.applyForce({x: (px - 60)*0.0001, y: (scene.input.activePointer.y - (window.innerHeight-80))*0.0001});
+        } else {
+            p1.rArm.applyForce({x: (px - (window.innerWidth-60))*0.0001, y: (scene.input.activePointer.y - (window.innerHeight-80))*0.0001});
         }
+    }
 
-        // Handle Resize
-        window.addEventListener('resize', () => {
-            game.scale.resize(window.innerWidth, window.innerHeight);
-        });
+    // Синхронизация
+    if(conn && conn.open) {
+        conn.send({type: 'SYNC', state: {
+            bx: p1.body.x, by: p1.body.y, br: p1.body.rotation,
+            hx: p1.head.x, hy: p1.head.y,
+            lax: p1.lArm.x, lay: p1.lArm.y, lar: p1.lArm.rotation,
+            rax: p1.rArm.x, ray: p1.rArm.y, rar: p1.rArm.rotation
+        }});
+    }
+}
 
-    </script>
+function handleSync(s) {
+    if(!p2) return;
+    p2.body.setPosition(s.bx, s.by); p2.body.setRotation(s.br);
+    p2.head.setPosition(s.hx, s.hy);
+    p2.lArm.setPosition(s.lax, s.lay); p2.lArm.setRotation(s.lar);
+    p2.rArm.setPosition(s.rax, s.ray); p2.rArm.setRotation(s.rar);
+}
+
+/** UI UTILS **/
+function showSMS(txt) {
+    const sms = document.getElementById('sms-pop');
+    document.getElementById('sms-msg').innerText = txt;
+    sms.style.top = '20px';
+    setTimeout(() => sms.style.top = '-100px', 3000);
+}
+
+function addChat(m, who) {
+    const area = document.getElementById('chat-area');
+    area.innerHTML += `<div><b>${who}:</b> ${m}</div>`;
+    area.scrollTop = area.scrollHeight;
+}
+
+window.addEventListener('resize', () => game.scale.resize(window.innerWidth, window.innerHeight));
+
+</script>
 </body>
 </html>
