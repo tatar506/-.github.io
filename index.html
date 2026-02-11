@@ -1,409 +1,489 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TERRA REACH: 50 LEVELS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Boundless Bonds | P2P Ragdoll Co-op</title>
+    
+    <!-- CDNs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+
     <style>
-        :root { --ui-gold: #ffce00; --terra-green: #5da341; --ui-bg: rgba(44, 62, 80, 0.9); }
-        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background: #000; font-family: 'Press+Start+2P', cursive; user-select: none; }
-        #game-container { width: 100vw; height: 100vh; }
-
-        /* Меню */
-        #menu-overlay {
-            position: fixed; inset: 0; background: #1a1a1a;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; color: white;
+        :root {
+            --neon-blue: #00f2ff;
+            --neon-pink: #ff00e5;
+            --bg-dark: #0a0a12;
         }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background: var(--bg-dark);
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #game-container { width: 100%; height: 100%; }
+
+        /* UI Overlays */
+        .overlay {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            background: rgba(10, 10, 18, 0.9);
+            z-index: 10;
+            transition: opacity 0.5s;
+        }
+
+        .hidden { display: none !important; opacity: 0; pointer-events: none; }
+
         .menu-card {
-            background: #333; border: 4px solid #555; padding: 20px; text-align: center;
-            box-shadow: 8px 8px 0 #000; max-width: 90%;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid var(--neon-blue);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+            text-align: center;
+            width: 80%; max-width: 400px;
         }
-        .title { color: var(--terra-green); font-size: 18px; text-shadow: 2px 2px #000; margin-bottom: 20px; }
 
-        .previews { display: flex; gap: 20px; justify-content: center; margin: 20px 0; }
-        .p-box { width: 70px; height: 100px; border: 3px solid #777; background: #111; position: relative; }
-        .p-box canvas { width: 100%; height: 100%; image-rendering: pixelated; }
-        .p-box.online { border-color: var(--ui-gold); box-shadow: 0 0 15px var(--ui-gold); }
-        .label { position: absolute; bottom: -15px; font-size: 7px; width: 100%; left: 0; }
+        h1 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-bottom: 1rem; color: var(--neon-blue); text-shadow: 0 0 10px var(--neon-blue); }
 
         .btn {
-            background: #4a6e35; border: 4px solid #2d4522; color: #fff; padding: 12px;
-            cursor: pointer; font-family: 'Press+Start+2P'; font-size: 10px; margin: 8px 0;
-            width: 100%; display: block; box-shadow: 4px 4px 0 #1a2a14;
+            background: transparent;
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            padding: 12px 24px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin: 10px;
+            border-radius: 5px;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
-        .btn:active { transform: translate(2px, 2px); box-shadow: none; }
-        .btn.gold { background: #b08d00; border-color: #7a6200; box-shadow: 4px 4px 0 #4d3d00; }
 
-        /* Состояние */
-        #status-text { font-size: 8px; color: #aaa; margin-top: 10px; }
+        .btn:hover { background: var(--neon-blue); color: black; box-shadow: 0 0 20px var(--neon-blue); }
 
-        /* HUD */
-        .hud { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 100; }
+        .input-field {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #444;
+            color: white;
+            padding: 10px;
+            width: 100%;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        /* In-game UI */
+        #hud {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5; display: none;
+        }
+
+        .joystick-area {
+            position: absolute; bottom: 20px;
+            width: 150px; height: 150px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 50%;
+            border: 2px dashed rgba(0, 242, 255, 0.3);
+            pointer-events: auto;
+        }
+        #left-joy { left: 20px; }
+        #right-joy { right: 20px; }
+
         .grab-btn {
-            position: absolute; bottom: 30px; width: 85px; height: 85px;
-            border-radius: 50%; background: rgba(0,0,0,0.5); border: 4px solid #fff;
-            pointer-events: auto; display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 8px;
+            position: absolute; bottom: 180px;
+            width: 70px; height: 70px;
+            background: rgba(255, 0, 229, 0.3);
+            border: 2px solid var(--neon-pink);
+            border-radius: 50%;
+            color: white; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: auto;
         }
-        #btn-l { left: 40px; } #btn-r { right: 40px; }
-        .grab-btn.active { background: var(--ui-gold); color: #000; transform: scale(1.1); }
-        
-        .lvl-tag { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 10px; background: rgba(0,0,0,0.5); padding: 10px; border: 2px solid #fff; }
+        #grab-l { left: 60px; }
+        #grab-r { right: 60px; }
+        .grabbing { background: var(--neon-pink) !important; box-shadow: 0 0 20px var(--neon-pink); }
 
-        #rotate-msg { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center; }
+        /* Chat & Notifications */
+        #chat-box {
+            position: absolute; top: 10px; left: 10px;
+            width: 250px; height: 150px;
+            background: rgba(0,0,0,0.4);
+            pointer-events: auto;
+            display: flex; flex-direction: column;
+            border-radius: 10px; font-size: 0.8rem;
+        }
+        #chat-messages { flex: 1; overflow-y: auto; padding: 5px; }
+        #chat-input { background: transparent; border: none; border-top: 1px solid #333; color: white; padding: 5px; }
+
+        #notification {
+            position: absolute; top: 20px; right: -300px;
+            width: 250px; background: var(--neon-blue);
+            color: black; padding: 15px; border-radius: 10px 0 0 10px;
+            transition: 0.5s; z-index: 100;
+        }
     </style>
 </head>
 <body>
 
-    <div id="rotate-msg">
-        <p>ПЕРЕВЕРНИТЕ ТЕЛЕФОН<br>ДЛЯ ИГРЫ</p>
-        <span style="font-size: 40px;">📱🔄</span>
-    </div>
-
-    <div id="menu-overlay">
+    <!-- Main Menu -->
+    <div id="main-menu" class="overlay">
         <div class="menu-card">
-            <h1 class="title">TERRA REACH: 50 LVL</h1>
-            
-            <div class="previews">
-                <div class="p-box online" id="p1-box">
-                    <canvas id="c1"></canvas>
-                    <div class="label">ВЫ</div>
-                </div>
-                <div class="p-box" id="p2-box">
-                    <canvas id="c2"></canvas>
-                    <div class="label">ДРУГ</div>
-                </div>
+            <h1>BOUNDLESS BONDS</h1>
+            <p>Your ID: <span id="my-id" style="color:var(--neon-pink)">----</span></p>
+            <input type="text" id="friend-id" class="input-field" placeholder="Enter Friend's 4-Digit ID">
+            <button class="btn" onclick="connectToFriend()">Connect Friend</button>
+            <div style="margin-top:20px; font-size: 0.8rem; opacity: 0.7;">
+                CLAN: NEON RUNNERS [Level 12]
             </div>
-
-            <div id="btn-container">
-                <button class="btn gold" id="btn-invite">1. КОПИРОВАТЬ ССЫЛКУ</button>
-                <button class="btn" id="btn-start" style="opacity: 0.5;">2. ЖДЕМ ДРУГА...</button>
-            </div>
-            
-            <p id="status-text">ВАШ ID: <span id="my-id">...</span></p>
+            <button class="btn" style="font-size: 0.8rem; border-color: #555;" onclick="copyInviteLink()">Copy Invite Link</button>
         </div>
     </div>
 
-    <div class="hud" id="hud">
-        <div class="lvl-tag" id="lvl-display">LEVEL: 1</div>
-        <div id="btn-l" class="grab-btn">ЛЕВАЯ</div>
-        <div id="btn-r" class="grab-btn">ПРАВАЯ</div>
+    <!-- HUD -->
+    <div id="hud">
+        <div id="left-joy" class="joystick-area"></div>
+        <div id="right-joy" class="joystick-area"></div>
+        <div id="grab-l" class="grab-btn">L-GRAB</div>
+        <div id="grab-r" class="grab-btn">R-GRAB</div>
+
+        <div id="chat-box">
+            <div id="chat-messages"></div>
+            <input type="text" id="chat-input" placeholder="Type message...">
+        </div>
     </div>
+
+    <div id="notification">New Invite Received!</div>
 
     <div id="game-container"></div>
 
-<script>
-/**
- * СЕТЕВОЙ МОДУЛЬ
- */
-const myId = Math.floor(1000 + Math.random() * 9000).toString();
-let peer, conn, isConnected = false;
+    <script>
+        /** 
+         * GLOBAL CONFIG & STATE 
+         **/
+        const config = {
+            type: Phaser.AUTO,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            backgroundColor: '#0a0a12',
+            parent: 'game-container',
+            physics: {
+                default: 'matter',
+                matter: { gravity: { y: 1 }, debug: false, enableSleeping: true }
+            },
+            scene: { preload: preload, create: create, update: update }
+        };
 
-function initPeer() {
-    peer = new Peer('TR-50LVL-' + myId);
-    
-    peer.on('open', () => {
-        document.getElementById('my-id').innerText = myId;
-        const hash = window.location.hash.replace('#', '');
-        if (hash && hash.length === 4) {
-            connectTo(hash);
+        const game = new Phaser.Game(config);
+        let peer, conn;
+        let myId = "";
+        let player, remotePlayer;
+        let cursors, scene;
+        let isHost = false;
+        let currentLevel = 1;
+        let gameActive = false;
+
+        const gameState = {
+            p1: { x: 100, y: 100, lh: 0, rh: 0, lg: false, rg: false },
+            p2: { x: 150, y: 100, lh: 0, rh: 0, lg: false, rg: false }
+        };
+
+        /**
+         * NETWORKING LOGIC
+         */
+        function initNetwork() {
+            // Generate a 4-digit ID based on random string
+            const shortId = Math.floor(1000 + Math.random() * 9000).toString();
+            peer = new Peer('bond-' + shortId);
+
+            peer.on('open', (id) => {
+                myId = id.split('-')[1];
+                document.getElementById('my-id').innerText = myId;
+                checkUrlParams();
+            });
+
+            peer.on('connection', (connection) => {
+                conn = connection;
+                isHost = true;
+                setupConnection();
+            });
         }
-    });
 
-    peer.on('connection', c => {
-        conn = c;
-        setupConnection();
-    });
-}
+        function connectToFriend() {
+            const id = document.getElementById('friend-id').value;
+            if (id) {
+                conn = peer.connect('bond-' + id);
+                isHost = false;
+                setupConnection();
+            }
+        }
 
-function connectTo(id) {
-    conn = peer.connect('TR-50LVL-' + id);
-    setupConnection();
-}
+        function setupConnection() {
+            conn.on('open', () => {
+                showNotification("Connected to Partner!");
+                document.getElementById('main-menu').classList.add('hidden');
+                document.getElementById('hud').style.display = 'block';
+                gameActive = true;
+                if(isHost) {
+                    conn.send({ type: 'START_LEVEL', level: currentLevel });
+                }
+            });
 
-function setupConnection() {
-    conn.on('open', () => {
-        isConnected = true;
-        document.getElementById('p2-box').classList.add('online');
-        document.getElementById('btn-start').innerText = "ИГРАТЬ (FULLSCREEN)";
-        document.getElementById('btn-start').style.opacity = "1";
-        document.getElementById('status-text').innerText = "СОЕДИНЕНО!";
-        document.getElementById('status-text').style.color = "#5da341";
-        
-        conn.on('data', data => {
-            if (data.type === 'sync') window.gameScene?.onRemoteSync(data.state);
-            if (data.type === 'lvl') window.gameScene?.loadLevel(data.lvl);
-        });
-    });
-}
+            conn.on('data', (data) => {
+                if (data.type === 'SYNC') {
+                    if (remotePlayer) updateRemotePlayer(data.state);
+                } else if (data.type === 'CHAT') {
+                    addChatMessage("Partner", data.msg);
+                } else if (data.type === 'START_LEVEL') {
+                    currentLevel = data.level;
+                    startNewLevel();
+                }
+            });
+        }
 
-document.getElementById('btn-invite').onclick = () => {
-    const url = window.location.origin + window.location.pathname + '#' + myId;
-    navigator.clipboard.writeText(url);
-    alert("Ссылка скопирована! Отправь её другу.");
-};
+        function checkUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const joinId = urlParams.get('join');
+            if (joinId) {
+                document.getElementById('friend-id').value = joinId;
+                setTimeout(connectToFriend, 1000);
+            }
+        }
 
-document.getElementById('btn-start').onclick = async () => {
-    if (!isConnected) return;
-    if (document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen().catch(() => {});
-        if (screen.orientation?.lock) await screen.orientation.lock('landscape').catch(() => {});
-    }
-    document.getElementById('menu-overlay').style.display = 'none';
-    document.getElementById('hud').style.display = 'block';
-    initGame();
-};
+        function copyInviteLink() {
+            const link = window.location.origin + window.location.pathname + "?join=" + myId;
+            navigator.clipboard.writeText(link);
+            showNotification("Link Copied to Clipboard!");
+        }
 
-/**
- * ГРАФИКА ТЕРРАРИИ
- */
-function createTextures(scene) {
-    const draw = (key, w, h, colors) => {
-        const canvas = scene.textures.createCanvas(key, w, h);
-        const ctx = canvas.getContext();
-        colors.forEach(c => {
-            ctx.fillStyle = c.color;
-            ctx.fillRect(c.x, c.y, c.w, c.h);
-        });
-        canvas.refresh();
-    };
-
-    // Блок земли
-    draw('dirt', 32, 32, [
-        {x:0, y:0, w:32, h:32, color:'#6d4c35'},
-        {x:0, y:0, w:32, h:8, color:'#5da341'}, // трава
-        {x:5, y:12, w:4, h:4, color:'#5a3d2a'}
-    ]);
-
-    // Шипы
-    draw('spikes', 32, 32, [
-        {x:0, y:20, w:32, h:12, color:'#444'},
-        {x:8, y:0, w:4, h:20, color:'#999'},
-        {x:20, y:0, w:4, h:20, color:'#999'}
-    ]);
-}
-
-/**
- * ИГРОВАЯ СЦЕНА
- */
-class MainScene extends Phaser.Scene {
-    constructor() { super('MainScene'); }
-
-    create() {
-        window.gameScene = this;
-        createTextures(this);
-        this.matter.world.setBounds(0, -2000, 10000, 4000);
-        this.level = 1;
-        
-        this.p1 = this.createPlayer(200, 400, 0x5da341, false);
-        this.p2 = this.createPlayer(250, 400, 0x3498db, true);
-
-        this.blocks = this.add.group();
-        this.loadLevel(this.level);
-
-        this.cameras.main.startFollow(this.p1.torso, true, 0.1, 0.1);
-        this.cameras.main.setZoom(1.2);
-        this.cameras.main.setBackgroundColor('#80a5ff');
-
-        this.setupMobileControls();
-    }
-
-    createPlayer(x, y, color, isRemote) {
-        const group = this.matter.world.nextGroup(true);
-        const torso = this.matter.add.rectangle(x, y, 24, 34, { collisionFilter: { group }, chamfer: 5, friction: 0.8 });
-        const head = this.matter.add.circle(x, y - 28, 11, { collisionFilter: { group } });
-        const lHand = this.matter.add.circle(x - 20, y, 8, { collisionFilter: { group }, friction: 1 });
-        const rHand = this.matter.add.circle(x + 20, y, 8, { collisionFilter: { group }, friction: 1 });
-
-        this.matter.add.constraint(torso, head, 0, 0.8, { pointA: {x:0, y:-18}, pointB: {x:0, y:12} });
-        this.matter.add.constraint(torso, lHand, 45, 0.1, { pointA: {x:-10, y:-10} });
-        this.matter.add.constraint(torso, rHand, 45, 0.1, { pointA: {x:10, y:-10} });
-
-        return { torso, head, lHand, rHand, color, grabL: false, grabR: false, isRemote, g: this.add.graphics() };
-    }
-
-    loadLevel(n) {
-        this.level = n;
-        document.getElementById('lvl-display').innerText = `LEVEL: ${n}`;
-        this.blocks.clear(true, true);
-        this.matter.world.localWorld.bodies.filter(b => b.isStatic && b.label !== 'bounds').forEach(b => this.matter.world.remove(b));
-
-        // Пол
-        this.addPlatform(200, 600, 600, 100);
-
-        // Генерация на основе уровня (50 уровней)
-        const seed = n * 12345;
-        for (let i = 1; i <= 5 + n; i++) {
-            const px = 600 + (i * (180 + n * 5));
-            const py = 600 - (Math.sin(seed + i) * 200);
-            const width = Math.max(150 - (n * 2), 60);
+        /**
+         * PHASER CORE
+         */
+        function preload() {
+            scene = this;
+            // Create base64 textures programmatically
+            const graphics = this.make.graphics({ x: 0, y: 0, add: false });
             
-            if (i % 4 === 0 && n > 5) {
-                this.addSpikes(px, py - 30, width);
+            // Human Body Part
+            graphics.fillStyle(0x00f2ff, 1);
+            graphics.fillRoundedRect(0, 0, 20, 40, 10);
+            graphics.generateTexture('body', 20, 40);
+            
+            // Head
+            graphics.clear();
+            graphics.fillStyle(0xffffff, 1);
+            graphics.fillCircle(10, 10, 10);
+            graphics.generateTexture('head', 20, 20);
+
+            // Arm
+            graphics.clear();
+            graphics.fillStyle(0x00f2ff, 0.8);
+            graphics.fillRoundedRect(0, 0, 8, 25, 4);
+            graphics.generateTexture('arm', 8, 25);
+        }
+
+        function create() {
+            this.matter.world.setBounds(0, -2000, 4000, 3000);
+            
+            initNetwork();
+            setupChat();
+            setupJoysticks();
+        }
+
+        function startNewLevel() {
+            scene.matter.world.clear();
+            createLevel(currentLevel);
+            player = createRagdoll(200, 500, 0x00f2ff);
+            remotePlayer = createRagdoll(250, 500, 0xff00e5);
+        }
+
+        function update() {
+            if (!gameActive || !player) return;
+
+            handleInput();
+            syncData();
+            
+            // Camera follow
+            if (remotePlayer) {
+                const centerX = (player.body.position.x + remotePlayer.body.position.x) / 2;
+                const centerY = (player.body.position.y + remotePlayer.body.position.y) / 2;
+                scene.cameras.main.lerp(centerX, centerY, 0.1);
+            }
+        }
+
+        /**
+         * PHYSICS & RAGDOLL
+         */
+        function createRagdoll(x, y, color) {
+            const M = scene.matter;
+            
+            const head = M.add.image(x, y - 50, 'head').setScale(1);
+            const body = M.add.image(x, y, 'body').setScale(1);
+            const lArm = M.add.image(x - 20, y, 'arm');
+            const rArm = M.add.image(x + 20, y, 'arm');
+            
+            head.setCircle(10).setFriction(0.5);
+            body.setRectangle(20, 40).setFriction(0.5);
+            lArm.setRectangle(8, 25);
+            rArm.setRectangle(8, 25);
+
+            // Connect Head to Body
+            M.add.constraint(head, body, 10, 0.8, { pointA: { x: 0, y: 10 }, pointB: { x: 0, y: -20 } });
+            
+            // Arms
+            const lShoulder = M.add.constraint(body, lArm, 5, 0.8, { pointA: { x: -10, y: -15 }, pointB: { x: 0, y: -10 } });
+            const rShoulder = M.add.constraint(body, rArm, 5, 0.8, { pointA: { x: 10, y: -15 }, pointB: { x: 0, y: -10 } });
+
+            return { head, body, lArm, rArm, color, lGrab: null, rGrab: null };
+        }
+
+        /**
+         * LEVEL GENERATION
+         */
+        function createLevel(lv) {
+            const M = scene.matter;
+            // Floor
+            M.add.rectangle(2000, 1000, 4000, 100, { isStatic: true, render: { fillStyle: '#1a1a2e' } });
+
+            if (lv === 1) { // Basic Climbing
+                M.add.rectangle(500, 800, 50, 400, { isStatic: true, render: { fillStyle: '#333' } });
+                M.add.rectangle(700, 600, 50, 400, { isStatic: true, render: { fillStyle: '#333' } });
+            } else if (lv === 2) { // Platforms
+                const plat = M.add.rectangle(600, 800, 200, 20, { isStatic: true, render: { fillStyle: '#00f2ff' } });
+                // Animating platform logic would go here
+            } else if (lv === 3) { // Water
+                const water = scene.add.rectangle(1000, 800, 1000, 400, 0x0044ff, 0.3);
+                // Buoyancy logic in update
+            }
+            
+            // Goal
+            const goal = M.add.rectangle(3500, 500, 100, 100, { isStatic: true, isSensor: true, render: { fillStyle: '#00ff00' } });
+        }
+
+        /**
+         * INPUT & INTERACTION
+         */
+        let joyL = { x: 0, y: 0 }, joyR = { x: 0, y: 0 };
+        let grabL = false, grabR = false;
+
+        function setupJoysticks() {
+            // Virtual Joystick Implementation (Simplified for logic)
+            const handleTouch = (id, target) => {
+                const el = document.getElementById(id);
+                el.addEventListener('touchstart', (e) => {
+                    if (id.includes('grab')) {
+                        toggleGrab(id === 'grab-l' ? 'L' : 'R');
+                    }
+                });
+                // Movement logic...
+            };
+            
+            handleTouch('grab-l');
+            handleTouch('grab-r');
+
+            // Keyboard fallback
+            cursors = scene.input.keyboard.createCursorKeys();
+        }
+
+        function toggleGrab(side) {
+            const hand = side === 'L' ? player.lArm : player.rArm;
+            const existing = side === 'L' ? player.lGrab : player.rGrab;
+
+            if (existing) {
+                scene.matter.world.removeConstraint(existing);
+                if(side === 'L') player.lGrab = null; else player.rGrab = null;
+                document.getElementById('grab-' + side.toLowerCase()).classList.remove('grabbing');
             } else {
-                this.addPlatform(px, py, width, 40);
+                // Check for nearby bodies to grab
+                const bodies = scene.matter.world.localWorld.bodies;
+                bodies.forEach(body => {
+                    if (body === hand.body || body === player.body.body) return;
+                    const dist = Phaser.Math.Distance.Between(hand.x, hand.y, body.position.x, body.position.y);
+                    if (dist < 40) {
+                        const c = scene.matter.add.constraint(hand, body, 5, 0.9);
+                        if(side === 'L') player.lGrab = c; else player.rGrab = c;
+                        document.getElementById('grab-' + side.toLowerCase()).classList.add('grabbing');
+                    }
+                });
             }
         }
 
-        // Финиш
-        const fx = 800 + ((6 + n) * (180 + n * 5));
-        const finish = this.add.star(fx, 400, 5, 20, 40, 0xffff00);
-        this.matter.add.gameObject(finish, { isStatic: true, isSensor: true });
-        finish.setOnCollide(pair => {
-            if (pair.bodyA.gameObject === this.p1.torso.gameObject || pair.bodyB.gameObject === this.p1.torso.gameObject) {
-                this.nextLevel();
-            }
-        });
-        this.blocks.add(finish);
-    }
-
-    addPlatform(x, y, w, h) {
-        const b = this.add.tileSprite(x, y, w, h, 'dirt');
-        this.matter.add.gameObject(b, { isStatic: true });
-        this.blocks.add(b);
-    }
-
-    addSpikes(x, y, w) {
-        const b = this.add.tileSprite(x, y, w, 32, 'spikes');
-        const body = this.matter.add.gameObject(b, { isStatic: true });
-        body.setOnCollide(() => this.resetLevel());
-        this.blocks.add(b);
-    }
-
-    nextLevel() {
-        const next = this.level + 1;
-        this.loadLevel(next);
-        if (conn) conn.send({ type: 'lvl', lvl: next });
-    }
-
-    resetLevel() {
-        this.p1.torso.position.x = 200;
-        this.p1.torso.position.y = 400;
-        this.p1.torso.velocity.x = 0;
-        this.p1.torso.velocity.y = 0;
-    }
-
-    setupMobileControls() {
-        const btnL = document.getElementById('btn-l');
-        const btnR = document.getElementById('btn-r');
-        
-        btnL.onpointerdown = e => { e.preventDefault(); this.p1.grabL = !this.p1.grabL; btnL.classList.toggle('active'); };
-        btnR.onpointerdown = e => { e.preventDefault(); this.p1.grabR = !this.p1.grabR; btnR.classList.toggle('active'); };
-    }
-
-    update() {
-        this.handlePlayerInput(this.p1);
-        this.processGrab(this.p1);
-        this.processGrab(this.p2);
-        this.drawPlayer(this.p1);
-        this.drawPlayer(this.p2);
-        this.sync();
-    }
-
-    handlePlayerInput(p) {
-        this.input.pointers.forEach(ptr => {
-            if (ptr.isDown && ptr.y < window.innerHeight - 120) {
-                const hand = ptr.x < window.innerWidth / 2 ? p.lHand : p.rHand;
-                const forceX = (ptr.x - ptr.downX) * 0.00018;
-                const forceY = (ptr.y - ptr.downY) * 0.00018;
-                this.matter.applyForce(hand, { x: forceX, y: forceY });
-            }
-        });
-    }
-
-    processGrab(p) {
-        const sides = [{h: p.lHand, g: p.grabL, k: 'cL'}, {h: p.rHand, g: p.grabR, k: 'cR'}];
-        sides.forEach(s => {
-            if (s.g && !p[s.k]) {
-                const bodies = this.matter.world.localWorld.bodies.filter(b => b !== s.h && b !== p.torso && b !== p.head);
-                const hit = bodies.find(b => Phaser.Math.Distance.Between(s.h.position.x, s.h.position.y, b.position.x, b.position.y) < 25);
-                if (hit) p[s.k] = this.matter.add.constraint(s.h, hit, 0, 1);
-            } else if (!s.g && p[s.k]) {
-                this.matter.world.removeConstraint(p[s.k]);
-                p[s.k] = null;
-            }
-        });
-    }
-
-    drawPlayer(p) {
-        const g = p.g; g.clear();
-        const skin = p.isRemote ? 0xd1c4e9 : 0xffdbac;
-        
-        // Голова
-        g.fillStyle(skin); g.fillCircle(p.head.position.x, p.head.position.y, 11);
-        g.fillStyle(0x000); g.fillRect(p.head.position.x+2, p.head.position.y-3, 2, 3);
-
-        // Тело
-        g.fillStyle(p.color);
-        g.save(); g.translateCanvas(p.torso.position.x, p.torso.position.y); g.rotate(p.torso.angle);
-        g.fillRect(-12, -17, 24, 34); g.restore();
-
-        // Руки
-        g.lineStyle(6, skin);
-        g.lineBetween(p.torso.position.x, p.torso.position.y - 10, p.lHand.position.x, p.lHand.position.y);
-        g.lineBetween(p.torso.position.x, p.torso.position.y - 10, p.rHand.position.x, p.rHand.position.y);
-        
-        g.fillStyle(p.grabL ? 0xffff00 : skin); g.fillCircle(p.lHand.position.x, p.lHand.position.y, 8);
-        g.fillStyle(p.grabR ? 0xffff00 : skin); g.fillCircle(p.rHand.position.x, p.rHand.position.y, 8);
-    }
-
-    sync() {
-        if (conn?.open) {
-            conn.send({ type: 'sync', state: {
-                tx: this.p1.torso.position.x, ty: this.p1.torso.position.y, ta: this.p1.torso.angle,
-                hx: this.p1.head.position.x, hy: this.p1.head.position.y,
-                lx: this.p1.lHand.position.x, ly: this.p1.lHand.position.y,
-                rx: this.p1.rHand.position.x, ry: this.p1.rHand.position.y,
-                gl: this.p1.grabL, gr: this.p1.grabR
-            }});
+        function handleInput() {
+            // Apply forces to hands based on joysticks/keys
+            const force = 0.005;
+            if (cursors.left.isDown) player.lArm.applyForce({ x: -force, y: -force });
+            if (cursors.right.isDown) player.rArm.applyForce({ x: force, y: -force });
+            
+            // Simple keyboard grab toggle for testing
+            scene.input.keyboard.once('keydown-Q', () => toggleGrab('L'));
+            scene.input.keyboard.once('keydown-E', () => toggleGrab('R'));
         }
-    }
 
-    onRemoteSync(s) {
-        const p = this.p2;
-        this.matter.body.setPosition(p.torso, {x: s.tx, y: s.ty});
-        this.matter.body.setAngle(p.torso, s.ta);
-        this.matter.body.setPosition(p.head, {x: s.hx, y: s.hy});
-        this.matter.body.setPosition(p.lHand, {x: s.lx, y: s.ly});
-        this.matter.body.setPosition(p.rHand, {x: s.rx, y: s.ry});
-        p.grabL = s.gl; p.grabR = s.gr;
-    }
-}
+        /**
+         * NETWORKING DATA SYNC
+         */
+        function syncData() {
+            if (conn && conn.open) {
+                const state = {
+                    hx: player.head.x, hy: player.head.y,
+                    bx: player.body.x, by: player.body.y, br: player.body.rotation,
+                    lax: player.lArm.x, lay: player.lArm.y, lar: player.lArm.rotation,
+                    rax: player.rArm.x, ray: player.rArm.y, rar: player.rArm.rotation
+                };
+                conn.send({ type: 'SYNC', state });
+            }
+        }
 
-function initGame() {
-    new Phaser.Game({
-        type: Phaser.AUTO, parent: 'game-container',
-        width: window.innerWidth, height: window.innerHeight,
-        physics: { default: 'matter', matter: { gravity: { y: 1.2 }, debug: false } },
-        scene: MainScene
-    });
-}
+        function updateRemotePlayer(s) {
+            remotePlayer.head.setPosition(s.hx, s.hy);
+            remotePlayer.body.setPosition(s.bx, s.by);
+            remotePlayer.body.setRotation(s.br);
+            remotePlayer.lArm.setPosition(s.lax, s.lay);
+            remotePlayer.lArm.setRotation(s.lar);
+            remotePlayer.rArm.setPosition(s.rax, s.ray);
+            remotePlayer.rArm.setRotation(s.rar);
+        }
 
-/**
- * ПРОВЕРКА ОРИЕНТАЦИИ
- */
-function checkOrientation() {
-    const msg = document.getElementById('rotate-msg');
-    if (window.innerHeight > window.innerWidth) msg.style.display = 'flex';
-    else msg.style.display = 'none';
-}
-window.addEventListener('resize', checkOrientation);
-window.onload = () => {
-    initPeer();
-    checkOrientation();
-    // Рисуем превью персонажей
-    const drawP = (id, color) => {
-        const ctx = document.getElementById(id).getContext('2d');
-        ctx.fillStyle = color; ctx.fillRect(15, 30, 40, 50);
-        ctx.fillStyle = '#ffdbac'; ctx.beginPath(); ctx.arc(35, 20, 15, 0, 7); ctx.fill();
-    };
-    drawP('c1', '#5da341');
-    drawP('c2', '#3498db');
-};
-</script>
+        /**
+         * UI HELPERS
+         */
+        function setupChat() {
+            const input = document.getElementById('chat-input');
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && input.value) {
+                    addChatMessage("You", input.value);
+                    if (conn) conn.send({ type: 'CHAT', msg: input.value });
+                    input.value = "";
+                }
+            });
+        }
+
+        function addChatMessage(sender, msg) {
+            const box = document.getElementById('chat-messages');
+            box.innerHTML += `<div><b>${sender}:</b> ${msg}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function showNotification(text) {
+            const n = document.getElementById('notification');
+            n.innerText = text;
+            n.style.right = '0px';
+            setTimeout(() => { n.style.right = '-300px'; }, 3000);
+        }
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            game.scale.resize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
 </body>
 </html>
