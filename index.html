@@ -3,186 +3,188 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Terraria Physics Co-op</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <title>TERRA-LINK: Ragdoll Saga</title>
+    <!-- Подключаем движки из надежных источников -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; overflow: hidden; background: #5aa2e2; font-family: 'Press Start 2P', cursive; }
-        #ui { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
-        .panel { background: rgba(84, 55, 41, 0.9); border: 4px solid #3d2a1f; color: #f7e692; padding: 15px; pointer-events: auto; box-shadow: inset -4px -4px 0 #2a1d15; }
-        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 320px; text-align: center; }
-        .btn { background: #5ea74d; border: 3px solid #36612a; color: white; padding: 10px; margin: 5px; cursor: pointer; width: 100%; font-size: 10px; }
+        body { margin: 0; padding: 0; background: #5aa2e2; overflow: hidden; font-family: 'Press Start 2P', cursive; touch-action: none; }
+        #ui { position: absolute; inset: 0; pointer-events: none; z-index: 100; }
+        .panel { background: #5d4037; border: 4px solid #3d2a1f; color: #f7e692; padding: 15px; pointer-events: auto; box-shadow: 8px 8px 0 rgba(0,0,0,0.3); }
+        
+        /* Главное меню */
+        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; text-align: center; }
+        .btn { background: #5ea74d; border: 3px solid #36612a; color: white; padding: 10px; width: 100%; margin: 5px 0; cursor: pointer; font-size: 10px; font-family: 'Press Start 2P'; }
         .btn:hover { background: #76c961; }
-        input { width: 90%; background: #000; border: 2px solid #f7e692; color: #fff; padding: 8px; margin: 10px 0; font-family: 'Press Start 2P'; font-size: 10px; }
-        #chat-box { position: absolute; bottom: 140px; left: 10px; width: 250px; height: 120px; display: none; flex-direction: column; }
-        #messages { flex: 1; overflow-y: auto; font-size: 8px; margin-bottom: 5px; }
-        #joy-l, #joy-r { position: absolute; bottom: 20px; width: 100px; height: 100px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid #fff; pointer-events: auto; }
+        input { width: 90%; padding: 10px; background: #000; border: 2px solid #f7e692; color: #fff; font-family: 'Press Start 2P'; font-size: 10px; margin: 10px 0; }
+
+        /* Чат и SMS */
+        #chat-box { position: absolute; bottom: 120px; left: 10px; width: 220px; height: 100px; background: rgba(0,0,0,0.6); display: none; flex-direction: column; font-size: 8px; color: #fff; padding: 5px; }
+        #sms { position: absolute; top: -100px; left: 50%; transform: translateX(-50%); background: #ffeb3b; padding: 10px; color: #000; transition: 0.5s; font-size: 10px; border: 3px solid #000; }
+
+        /* Контроллеры */
+        .joy-area { position: absolute; bottom: 20px; width: 100px; height: 100px; border: 2px dashed #fff; border-radius: 50%; pointer-events: auto; }
         #joy-l { left: 20px; } #joy-r { right: 20px; }
-        .grab { position: absolute; bottom: 130px; width: 50px; height: 50px; background: #ff4747; border: 3px solid #fff; border-radius: 10px; pointer-events: auto; display: flex; align-items: center; justify-content: center; font-size: 8px; }
-        #grab-l { left: 45px; } #grab-r { right: 45px; }
+        .grab-btn { position: absolute; bottom: 130px; width: 60px; height: 60px; background: #ff4747; border: 3px solid #fff; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 8px; pointer-events: auto; }
+        #btn-l { left: 40px; } #btn-r { right: 40px; }
         .active-grab { background: #47ff47 !important; }
-        #sms { position: absolute; top: -100px; left: 50%; transform: translateX(-50%); transition: 0.5s; width: 80%; }
     </style>
 </head>
 <body>
 
 <div id="ui">
     <div id="menu" class="panel">
-        <h2 style="font-size: 16px; margin-top:0;">TERRA CO-OP</h2>
-        <div id="my-id" style="font-size: 10px; margin: 10px 0;">ID: ....</div>
-        <input type="text" id="join-id" placeholder="ID ДРУГА">
-        <button class="btn" onclick="connect()">ИГРАТЬ С ДРУГОМ</button>
-        <button class="btn" onclick="copyLink()" style="background:#4d70a7">ССЫЛКА ПАРТНЕРУ</button>
-        <div style="font-size: 7px; margin-top:15px; border-top: 1px solid #f7e692; padding-top:10px;">
-            КЛАН: [MINERS_GUILD] <br> ОНЛАЙН: 42 ИГРОКА
-        </div>
+        <h2 style="font-size: 14px;">TERRA-LINK</h2>
+        <div id="status">Инициализация...</div>
+        <div id="my-id-label" style="margin: 10px 0; font-size: 8px; color: #fff;"></div>
+        <input type="text" id="target-id" placeholder="ID ДРУГА">
+        <button class="btn" onclick="connectToPeer()">ИГРАТЬ</button>
+        <button class="btn" style="background:#4d70a7" onclick="copyInviteLink()">ССЫЛКА</button>
+        <div style="font-size: 6px; margin-top: 15px;">КЛАН: [MINERS] | ОНЛАЙН: FREE</div>
     </div>
 
+    <div id="sms">ПРИГЛАШЕНИЕ ПРИНЯТО!</div>
     <div id="chat-box" class="panel">
-        <div id="messages"></div>
-        <input type="text" id="chat-msg" placeholder="ТЕКСТ..." style="margin:0;">
+        <div id="messages" style="flex:1; overflow-y:auto;"></div>
+        <input type="text" id="chat-in" placeholder="ЧАТ..." style="margin:0; width:95%; font-size:7px;">
     </div>
 
-    <div id="sms" class="panel" style="background:#5ea74d; text-align:center;">
-        ВХОДЯЩИЙ ВЫЗОВ: ПРИСОЕДИНЯЙТЕСЬ!
-    </div>
-
-    <div id="joy-l"></div> <div id="joy-r"></div>
-    <div id="grab-l" class="grab">L-RUK</div> <div id="grab-r" class="grab">R-RUK</div>
+    <div id="joy-l" class="joy-area"></div>
+    <div id="joy-r" class="joy-area"></div>
+    <div id="btn-l" class="grab-btn">L-GRAB</div>
+    <div id="btn-r" class="grab-btn">R-GRAB</div>
 </div>
 
 <script>
-/** SPRITES DATA (Terraria Style Base64) **/
-const sprites = {
-    grass: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2N89f79fwYgYGRkZGRABv9fXmY8uXMXmYpIAhgGDCpgmEAn9zMyDFA6AgAx006fO98z7AAAAABJRU5ErkJggg==',
-    body: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAALCAYAAABCm79lAAAAHElEQVQoU2N89f79fwYgYGRkZGBABv9fXmY8uXMXALvKEnfL96p/AAAAAElFTkSuQmCC',
-    head: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAF0lEQVQoU2N89f79fwYgYGRkZGBAB6QZALvKEnfE6M38AAAAAElFTkSuQmCC'
-};
-
-/** CORE LOGIC **/
-let peer, conn, myId, player, partner, scene;
+/** --- СЕТЕВАЯ ЧАСТЬ (БЕСПЛАТНОЕ ОБЛАКО PEERJS) --- **/
+let peer, conn, myShortId, player, partner, scene;
 let isHost = false;
-let grabbingL = false, grabbingR = false;
 
-// Инициализация сети
-function initNet() {
-    const shortId = Math.floor(1000 + Math.random() * 9000).toString();
-    peer = new Peer('terra-' + shortId);
-    peer.on('open', id => {
-        myId = id.split('-')[1];
-        document.getElementById('my-id').innerText = "ВАШ ID: " + myId;
-        const urlParams = new URLSearchParams(window.location.search);
-        if(urlParams.get('join')) {
-            document.getElementById('join-id').value = urlParams.get('join');
-            connect();
-        }
+function initNetwork() {
+    // Используем стандартный сервер PeerJS (0.peerjs.com) - это бесплатно!
+    myShortId = Math.floor(1000 + Math.random() * 9000).toString();
+    peer = new Peer('terra-' + myShortId);
+
+    peer.on('open', (id) => {
+        document.getElementById('status').innerText = "ГОТОВ К ИГРЕ";
+        document.getElementById('my-id-label').innerText = "ВАШ ID: " + myShortId;
+        checkAutoJoin();
     });
-    peer.on('connection', c => { conn = c; isHost = true; setupConn(); });
+
+    peer.on('connection', (c) => {
+        conn = c; isHost = true; setupConn();
+    });
+
+    peer.on('error', (err) => {
+        console.error(err);
+        alert("Ошибка сети. Попробуйте обновить страницу.");
+    });
 }
 
-function connect() {
-    const id = document.getElementById('join-id').value;
-    if(!id) return;
-    conn = peer.connect('terra-' + id);
+function connectToPeer() {
+    const tid = document.getElementById('target-id').value;
+    if(!tid) return;
+    conn = peer.connect('terra-' + tid);
     setupConn();
 }
 
 function setupConn() {
     conn.on('open', () => {
+        showSms("СВЯЗЬ УСТАНОВЛЕНА!");
         document.getElementById('menu').style.display = 'none';
         document.getElementById('chat-box').style.display = 'flex';
-        showSms("СВЯЗЬ УСТАНОВЛЕНА!");
         startGame();
     });
     conn.on('data', data => {
-        if(data.type === 'sync') syncPartner(data);
-        if(data.type === 'chat') addMsg("ДРУГ", data.msg);
+        if(data.type === 'sync') syncPartner(data.state);
+        if(data.type === 'chat') addChat("ДРУГ", data.msg);
     });
 }
 
-function copyLink() {
-    const link = window.location.origin + window.location.pathname + "?join=" + myId;
-    navigator.clipboard.writeText(link);
-    showSms("ССЫЛКА СКОПИРОВАНА!");
+function copyInviteLink() {
+    const link = window.location.origin + window.location.pathname + "?join=" + myShortId;
+    navigator.clipboard.writeText(link).then(() => showSms("ССЫЛКА СКОПИРОВАНА!"));
 }
 
-/** GAME ENGINE **/
+function checkAutoJoin() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinId = urlParams.get('join');
+    if(joinId) {
+        document.getElementById('target-id').value = joinId;
+        setTimeout(connectToPeer, 1000);
+    }
+}
+
+/** --- ИГРОВАЯ ФИЗИКА (TERRARIA STYLE) --- **/
 const config = {
     type: Phaser.AUTO,
-    width: window.innerWidth, height: window.innerHeight,
-    physics: { default: 'matter', matter: { gravity: { y: 1 }, debug: false } },
+    width: window.innerWidth,
+    height: window.innerHeight,
+    physics: { default: 'matter', matter: { gravity: { y: 1.2 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
 const game = new Phaser.Game(config);
 
 function preload() {
     scene = this;
-    Object.keys(sprites).forEach(key => this.load.image(key, sprites[key]));
+    const draw = (k, c, w, h) => {
+        let g = this.make.graphics({x:0,y:0,add:false});
+        g.fillStyle(c, 1); g.fillRect(0,0,w,h);
+        g.lineStyle(2, 0x000000, 0.2); g.strokeRect(0,0,w,h);
+        g.generateTexture(k, w, h);
+    };
+    draw('dirt', 0x5d4037, 40, 40);
+    draw('grass', 0x388e3c, 40, 40);
+    draw('p_body', 0xe0a96d, 20, 30);
+    draw('p_arm', 0xe0a96d, 10, 10);
 }
 
 function create() {
     this.matter.world.setBounds(0, 0, 10000, 2000);
-    initNet();
-    
-    // Чат ввод
-    document.getElementById('chat-msg').addEventListener('keydown', e => {
-        if(e.key === 'Enter' && e.target.value) {
-            addMsg("Я", e.target.value);
-            conn.send({type:'chat', msg: e.target.value});
-            e.target.value = '';
-        }
-    });
-
-    // Управление
-    setupMobileControls();
+    initNetwork();
 }
 
-function createChar(x, y, tint) {
+function createRagdoll(x, y) {
     const M = scene.matter;
     const group = M.world.nextGroup(true);
-    
-    const body = M.add.image(x, y, 'body').setScale(3).setRectangle(24, 33).setCollisionGroup(group);
-    const head = M.add.image(x, y-30, 'head').setScale(3).setCircle(12).setCollisionGroup(group);
-    const lHand = M.add.image(x-20, y, 'head').setScale(1.5).setCircle(6).setCollisionGroup(group).setFriction(1);
-    const rHand = M.add.image(x+20, y, 'head').setScale(1.5).setCircle(6).setCollisionGroup(group).setFriction(1);
 
-    M.add.constraint(head, body, 0, 0.5, {pointA:{x:0, y:12}, pointB:{x:0, y:-15}});
-    const cL = M.add.constraint(body, lHand, 50, 0.1, {pointA:{x:-10, y:-5}});
-    const cR = M.add.constraint(body, rHand, 50, 0.1, {pointA:{x:10, y:-5}});
+    const body = M.add.image(x, y, 'p_body').setRectangle(20, 30).setCollisionGroup(group).setFriction(0.5);
+    const lHand = M.add.image(x-20, y, 'p_arm').setCircle(8).setCollisionGroup(group).setFriction(1);
+    const rHand = M.add.image(x+20, y, 'p_arm').setCircle(8).setCollisionGroup(group).setFriction(1);
 
-    body.setTint(tint);
-    return { head, body, lHand, rHand, cL, cR, grabs: [null, null] };
-}
+    const cL = M.add.constraint(body, lHand, 50, 0.1, {pointA:{x:-10, y:0}});
+    const cR = M.add.constraint(body, rHand, 50, 0.1, {pointA:{x:10, y:0}});
 
-function buildLevel() {
-    // Генерация 50 уровней через цикл
-    for(let i=0; i<500; i++) {
-        let x = i * 48;
-        let y = 500 + Math.sin(i*0.2) * 100;
-        scene.matter.add.image(x, y, 'grass', null, {isStatic:true}).setScale(3);
-        if(i % 10 === 0) { // Деревья/Столбы для лазанья
-            scene.matter.add.rectangle(x, y-150, 30, 300, {isStatic:true, render:{fillStyle:0x5d4037}});
-        }
-        if(i > 50 && i < 70) { // Вода (просто зона с низкой гравитацией)
-            scene.add.rectangle(x, y-50, 48, 200, 0x5aa2e2, 0.5);
-        }
-    }
+    return { body, lHand, rHand, grabs: [null, null] };
 }
 
 function startGame() {
-    buildLevel();
-    player = createChar(200, 300, 0xffffff);
-    partner = createChar(300, 300, 0xffcccc);
-    scene.cameras.main.startFollow(player.body);
-    scene.cameras.main.setZoom(1.5);
+    // Генерация 50 уровней (просто длинный мир)
+    for(let i=0; i<500; i++) {
+        let tx = i * 40;
+        let ty = 600 + Math.sin(i*0.2) * 80;
+        scene.matter.add.image(tx, ty, 'grass', null, {isStatic:true});
+        if(i % 10 === 0) { // Деревья для лазанья
+            for(let j=1; j<8; j++) scene.matter.add.image(tx, ty - j*40, 'dirt', null, {isStatic:true});
+        }
+    }
+
+    player = createRagdoll(200, 400);
+    partner = createRagdoll(250, 400);
+    partner.body.setTint(0xff8888);
+
+    scene.cameras.main.startFollow(player.body, true, 0.1, 0.1);
+    scene.cameras.main.setZoom(1.2);
+
+    setupControls();
 }
 
-function setupMobileControls() {
+function setupControls() {
     const handleGrab = (side) => {
-        const hand = side === 'L' ? player.lHand : player.rHand;
         const idx = side === 'L' ? 0 : 1;
-        const btn = document.getElementById('grab-' + side.toLowerCase());
+        const hand = side === 'L' ? player.lHand : player.rHand;
+        const btn = document.getElementById('btn-' + side.toLowerCase());
 
         if(player.grabs[idx]) {
             scene.matter.world.removeConstraint(player.grabs[idx]);
@@ -191,9 +193,9 @@ function setupMobileControls() {
         } else {
             const bodies = scene.matter.world.localWorld.bodies;
             for(let b of bodies) {
-                if(b === player.body.body || b === player.head.body || b === player.lHand.body || b === player.rHand.body) continue;
-                if(Phaser.Math.Distance.Between(hand.x, hand.y, b.position.x, b.position.y) < 30) {
-                    player.grabs[idx] = scene.matter.add.constraint(hand, b, 5, 0.9);
+                if(b === player.body.body || b === player.lHand.body || b === player.rHand.body) continue;
+                if(Phaser.Math.Distance.Between(hand.x, hand.y, b.position.x, b.position.y) < 40) {
+                    player.grabs[idx] = scene.matter.add.constraint(hand, b, 5, 0.8);
                     btn.classList.add('active-grab');
                     break;
                 }
@@ -201,53 +203,59 @@ function setupMobileControls() {
         }
     };
 
-    document.getElementById('grab-l').onclick = () => handleGrab('L');
-    document.getElementById('grab-r').onclick = () => handleGrab('R');
-    
-    // Мышь/Тач для управления руками
-    scene.input.on('pointermove', p => {
-        if(!player) return;
-        const target = p.worldX < player.body.x ? player.lHand : player.rHand;
-        const force = 0.002;
-        target.applyForce({x: (p.worldX - target.x) * force, y: (p.worldY - target.y) * force});
-    });
+    document.getElementById('btn-l').onclick = () => handleGrab('L');
+    document.getElementById('btn-r').onclick = () => handleGrab('R');
+
+    // Чат
+    document.getElementById('chat-in').onkeydown = e => {
+        if(e.key === 'Enter' && e.target.value) {
+            addChat("Я", e.target.value);
+            conn.send({type:'chat', msg: e.target.value});
+            e.target.value = '';
+        }
+    };
 }
 
 function update() {
-    if(!conn || !player) return;
+    if(!player || !conn) return;
 
-    // Синхронизация данных
+    // Управление: руки летят за указателем
+    if(this.input.activePointer.isDown) {
+        const p = this.input.activePointer;
+        const hand = p.worldX < player.body.x ? player.lHand : player.rHand;
+        const force = 0.004;
+        hand.applyForce({x: (p.worldX - hand.x) * force, y: (p.worldY - hand.y) * force});
+    }
+
+    // Синхронизация
     conn.send({
         type: 'sync',
-        bx: player.body.x, by: player.body.y, br: player.body.rotation,
-        hx: player.head.x, hy: player.head.y,
-        lx: player.lHand.x, ly: player.lHand.y,
-        rx: player.rHand.x, ry: player.rHand.y
+        state: {
+            bx: player.body.x, by: player.body.y, br: player.body.rotation,
+            lx: player.lHand.x, ly: player.lHand.y,
+            rx: player.rHand.x, ry: player.rHand.y
+        }
     });
 }
 
 function syncPartner(s) {
     if(!partner) return;
     partner.body.setPosition(s.bx, s.by).setRotation(s.br);
-    partner.head.setPosition(s.hx, s.hy);
     partner.lHand.setPosition(s.lx, s.ly);
     partner.rHand.setPosition(s.rx, s.ry);
 }
 
-/** UI HELPERS **/
+function addChat(u, m) {
+    const b = document.getElementById('messages');
+    b.innerHTML += `<div>[${u}]: ${m}</div>`;
+    b.scrollTop = b.scrollHeight;
+}
+
 function showSms(t) {
     const s = document.getElementById('sms');
     s.innerText = t; s.style.top = '20px';
     setTimeout(() => s.style.top = '-100px', 3000);
 }
-
-function addMsg(u, m) {
-    const box = document.getElementById('messages');
-    box.innerHTML += `<div><b>${u}:</b> ${m}</div>`;
-    box.scrollTop = box.scrollHeight;
-}
-
-window.addEventListener('resize', () => game.scale.resize(window.innerWidth, window.innerHeight));
 </script>
 </body>
 </html>
