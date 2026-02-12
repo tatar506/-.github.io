@@ -3,259 +3,409 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TERRA-LINK: Ragdoll Saga</title>
-    <!-- Подключаем движки из надежных источников -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <title>Dino AI Mobile</title>
+    <!-- Библиотеки MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
     <style>
-        body { margin: 0; padding: 0; background: #5aa2e2; overflow: hidden; font-family: 'Press Start 2P', cursive; touch-action: none; }
-        #ui { position: absolute; inset: 0; pointer-events: none; z-index: 100; }
-        .panel { background: #5d4037; border: 4px solid #3d2a1f; color: #f7e692; padding: 15px; pointer-events: auto; box-shadow: 8px 8px 0 rgba(0,0,0,0.3); }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f7f7f7;
+            font-family: sans-serif;
+            overflow: hidden;
+            touch-action: none; /* Отключаем жесты браузера */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* Скрываем само видео, нам нужен только результат */
+        .input_video { display: none; }
+
+        /* Окно с камерой (в углу) */
+        #hand-canvas {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 100px;
+            height: 75px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            z-index: 100;
+            transform: scaleX(-1); /* Зеркалим */
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+
+        /* Основной холст игры */
+        #game-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #535353;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+
+        .gesture-box {
+            font-size: 24px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #535353;
+            text-shadow: 2px 2px 0px #fff;
+        }
         
-        /* Главное меню */
-        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; text-align: center; }
-        .btn { background: #5ea74d; border: 3px solid #36612a; color: white; padding: 10px; width: 100%; margin: 5px 0; cursor: pointer; font-size: 10px; font-family: 'Press Start 2P'; }
-        .btn:hover { background: #76c961; }
-        input { width: 90%; padding: 10px; background: #000; border: 2px solid #f7e692; color: #fff; font-family: 'Press Start 2P'; font-size: 10px; margin: 10px 0; }
-
-        /* Чат и SMS */
-        #chat-box { position: absolute; bottom: 120px; left: 10px; width: 220px; height: 100px; background: rgba(0,0,0,0.6); display: none; flex-direction: column; font-size: 8px; color: #fff; padding: 5px; }
-        #sms { position: absolute; top: -100px; left: 50%; transform: translateX(-50%); background: #ffeb3b; padding: 10px; color: #000; transition: 0.5s; font-size: 10px; border: 3px solid #000; }
-
-        /* Контроллеры */
-        .joy-area { position: absolute; bottom: 20px; width: 100px; height: 100px; border: 2px dashed #fff; border-radius: 50%; pointer-events: auto; }
-        #joy-l { left: 20px; } #joy-r { right: 20px; }
-        .grab-btn { position: absolute; bottom: 130px; width: 60px; height: 60px; background: #ff4747; border: 3px solid #fff; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 8px; pointer-events: auto; }
-        #btn-l { left: 40px; } #btn-r { right: 40px; }
-        .active-grab { background: #47ff47 !important; }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            z-index: 200;
+        }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <div id="menu" class="panel">
-        <h2 style="font-size: 14px;">TERRA-LINK</h2>
-        <div id="status">Инициализация...</div>
-        <div id="my-id-label" style="margin: 10px 0; font-size: 8px; color: #fff;"></div>
-        <input type="text" id="target-id" placeholder="ID ДРУГА">
-        <button class="btn" onclick="connectToPeer()">ИГРАТЬ</button>
-        <button class="btn" style="background:#4d70a7" onclick="copyInviteLink()">ССЫЛКА</button>
-        <div style="font-size: 6px; margin-top: 15px;">КЛАН: [MINERS] | ОНЛАЙН: FREE</div>
+    <div id="loading">Запуск камеры и нейросети...<br><small>Разрешите доступ к камере</small></div>
+
+    <div id="ui-layer">
+        <div class="status">Очки: <span id="scoreVal">0</span></div>
+        <div class="gesture-box" id="gesture-indicator">СТОП</div>
     </div>
+    
+    <video class="input_video" playsinline></video>
+    <canvas id="hand-canvas"></canvas>
+    <canvas id="game-canvas"></canvas>
 
-    <div id="sms">ПРИГЛАШЕНИЕ ПРИНЯТО!</div>
-    <div id="chat-box" class="panel">
-        <div id="messages" style="flex:1; overflow-y:auto;"></div>
-        <input type="text" id="chat-in" placeholder="ЧАТ..." style="margin:0; width:95%; font-size:7px;">
-    </div>
+    <script>
+        // === 1. ГРАФИКА (SPRITES) ===
+        // Создаем изображения программно (Base64), чтобы не зависеть от внешних файлов
+        
+        const dinoImg = new Image();
+        const cactusImg = new Image();
+        
+        // Простой пиксель-арт динозавра (закодирован)
+        dinoImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABmJLR0QA/wD/AP+gvaeTAAAAZklEQVR4nO3QQQqAQBADwP3/o3ePHgQhS1uYgX27k1kJAAAAAACA35x0z9309D/gCpjfFjB/j8BvC5i/R+C3BczfI/DbAubvEfhtAfP3CPy2gPl7BH5bwPw9Ar8tYP4eAQAAAAAA4I4L/NwDF+ujQ/EAAAAASUVORK5CYII='; 
+        // Примечание: Это упрощенный placeholder (черный квадрат). 
+        // Для полноценной графики мы будем рисовать на канвасе "красиво".
 
-    <div id="joy-l" class="joy-area"></div>
-    <div id="joy-r" class="joy-area"></div>
-    <div id="btn-l" class="grab-btn">L-GRAB</div>
-    <div id="btn-r" class="grab-btn">R-GRAB</div>
-</div>
+        // === 2. ИГРОВОЙ ДВИЖОК ===
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
 
-<script>
-/** --- СЕТЕВАЯ ЧАСТЬ (БЕСПЛАТНОЕ ОБЛАКО PEERJS) --- **/
-let peer, conn, myShortId, player, partner, scene;
-let isHost = false;
+        // Переменные игры
+        let gameSpeed = 6;
+        let score = 0;
+        let frames = 0;
+        let gameRunning = false;
+        let obstacles = [];
 
-function initNetwork() {
-    // Используем стандартный сервер PeerJS (0.peerjs.com) - это бесплатно!
-    myShortId = Math.floor(1000 + Math.random() * 9000).toString();
-    peer = new Peer('terra-' + myShortId);
+        // Динозавр
+        const dino = {
+            x: 50,
+            y: 0,
+            w: 44, // ширина
+            h: 47, // высота
+            dy: 0,
+            jumpForce: 13,
+            originalGravity: 0.6,
+            gravity: 0.6,
+            grounded: false,
+            legFrame: 0, // для анимации ног
+            
+            draw: function() {
+                // Анимация бега (меняем ноги каждые 10 кадров)
+                let legOffset = 0;
+                if (this.grounded) {
+                    if (Math.floor(frames / 8) % 2 === 0) {
+                        legOffset = 1; // Левая нога
+                    } else {
+                        legOffset = -1; // Правая нога
+                    }
+                }
 
-    peer.on('open', (id) => {
-        document.getElementById('status').innerText = "ГОТОВ К ИГРЕ";
-        document.getElementById('my-id-label').innerText = "ВАШ ID: " + myShortId;
-        checkAutoJoin();
-    });
+                ctx.fillStyle = '#535353';
+                
+                // Рисуем тело (пиксель-арт стилизация кодом)
+                // Голова
+                ctx.fillRect(this.x + 20, this.y, 20, 15);
+                // Глаз
+                ctx.clearRect(this.x + 25, this.y + 2, 4, 4);
+                // Шея и тело
+                ctx.fillRect(this.x, this.y + 15, 30, 20);
+                ctx.fillRect(this.x + 30, this.y + 15, 10, 8); // Часть шеи
+                // Хвост
+                ctx.fillRect(this.x - 10, this.y + 18, 10, 10);
+                
+                // Ноги (с анимацией)
+                if (legOffset === 1) {
+                    ctx.fillRect(this.x + 5, this.y + 35, 6, 12); // Левая
+                    ctx.fillRect(this.x + 20, this.y + 35, 6, 8); // Правая поднята
+                } else {
+                    ctx.fillRect(this.x + 5, this.y + 35, 6, 8); // Левая поднята
+                    ctx.fillRect(this.x + 20, this.y + 35, 6, 12); // Правая
+                }
+            },
+            
+            update: function() {
+                // Физика прыжка
+                if (!this.grounded) {
+                    this.dy += this.gravity;
+                    this.y += this.dy;
+                }
 
-    peer.on('connection', (c) => {
-        conn = c; isHost = true; setupConn();
-    });
+                // Столкновение с землей
+                let groundLevel = height - 100;
+                if (this.y + this.h > groundLevel) {
+                    this.y = groundLevel - this.h;
+                    this.dy = 0;
+                    this.grounded = true;
+                } else {
+                    this.grounded = false;
+                }
+            },
+            
+            jump: function() {
+                if (this.grounded) {
+                    this.dy = -this.jumpForce;
+                    this.grounded = false;
+                }
+            }
+        };
 
-    peer.on('error', (err) => {
-        console.error(err);
-        alert("Ошибка сети. Попробуйте обновить страницу.");
-    });
-}
-
-function connectToPeer() {
-    const tid = document.getElementById('target-id').value;
-    if(!tid) return;
-    conn = peer.connect('terra-' + tid);
-    setupConn();
-}
-
-function setupConn() {
-    conn.on('open', () => {
-        showSms("СВЯЗЬ УСТАНОВЛЕНА!");
-        document.getElementById('menu').style.display = 'none';
-        document.getElementById('chat-box').style.display = 'flex';
-        startGame();
-    });
-    conn.on('data', data => {
-        if(data.type === 'sync') syncPartner(data.state);
-        if(data.type === 'chat') addChat("ДРУГ", data.msg);
-    });
-}
-
-function copyInviteLink() {
-    const link = window.location.origin + window.location.pathname + "?join=" + myShortId;
-    navigator.clipboard.writeText(link).then(() => showSms("ССЫЛКА СКОПИРОВАНА!"));
-}
-
-function checkAutoJoin() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const joinId = urlParams.get('join');
-    if(joinId) {
-        document.getElementById('target-id').value = joinId;
-        setTimeout(connectToPeer, 1000);
-    }
-}
-
-/** --- ИГРОВАЯ ФИЗИКА (TERRARIA STYLE) --- **/
-const config = {
-    type: Phaser.AUTO,
-    width: window.innerWidth,
-    height: window.innerHeight,
-    physics: { default: 'matter', matter: { gravity: { y: 1.2 }, debug: false } },
-    scene: { preload: preload, create: create, update: update }
-};
-const game = new Phaser.Game(config);
-
-function preload() {
-    scene = this;
-    const draw = (k, c, w, h) => {
-        let g = this.make.graphics({x:0,y:0,add:false});
-        g.fillStyle(c, 1); g.fillRect(0,0,w,h);
-        g.lineStyle(2, 0x000000, 0.2); g.strokeRect(0,0,w,h);
-        g.generateTexture(k, w, h);
-    };
-    draw('dirt', 0x5d4037, 40, 40);
-    draw('grass', 0x388e3c, 40, 40);
-    draw('p_body', 0xe0a96d, 20, 30);
-    draw('p_arm', 0xe0a96d, 10, 10);
-}
-
-function create() {
-    this.matter.world.setBounds(0, 0, 10000, 2000);
-    initNetwork();
-}
-
-function createRagdoll(x, y) {
-    const M = scene.matter;
-    const group = M.world.nextGroup(true);
-
-    const body = M.add.image(x, y, 'p_body').setRectangle(20, 30).setCollisionGroup(group).setFriction(0.5);
-    const lHand = M.add.image(x-20, y, 'p_arm').setCircle(8).setCollisionGroup(group).setFriction(1);
-    const rHand = M.add.image(x+20, y, 'p_arm').setCircle(8).setCollisionGroup(group).setFriction(1);
-
-    const cL = M.add.constraint(body, lHand, 50, 0.1, {pointA:{x:-10, y:0}});
-    const cR = M.add.constraint(body, rHand, 50, 0.1, {pointA:{x:10, y:0}});
-
-    return { body, lHand, rHand, grabs: [null, null] };
-}
-
-function startGame() {
-    // Генерация 50 уровней (просто длинный мир)
-    for(let i=0; i<500; i++) {
-        let tx = i * 40;
-        let ty = 600 + Math.sin(i*0.2) * 80;
-        scene.matter.add.image(tx, ty, 'grass', null, {isStatic:true});
-        if(i % 10 === 0) { // Деревья для лазанья
-            for(let j=1; j<8; j++) scene.matter.add.image(tx, ty - j*40, 'dirt', null, {isStatic:true});
+        // Изменение размеров окна
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            width = canvas.width;
+            height = canvas.height;
         }
-    }
+        window.addEventListener('resize', resize);
+        resize();
 
-    player = createRagdoll(200, 400);
-    partner = createRagdoll(250, 400);
-    partner.body.setTint(0xff8888);
+        function spawnObstacle() {
+            // Адаптивный спавн (реже на узких экранах)
+            let minGap = width > 500 ? 90 : 120; 
+            
+            if (frames % Math.floor(Math.random() * minGap + 80) === 0) {
+                // Тип кактуса (маленький или большой)
+                let type = Math.random() > 0.5 ? 1 : 2; 
+                obstacles.push({
+                    x: width,
+                    y: height - 100 - (type === 1 ? 30 : 50),
+                    w: type === 1 ? 20 : 30,
+                    h: type === 1 ? 30 : 50,
+                    marked: false
+                });
+            }
+        }
 
-    scene.cameras.main.startFollow(player.body, true, 0.1, 0.1);
-    scene.cameras.main.setZoom(1.2);
+        function drawGame() {
+            if (!gameRunning) return;
+            requestAnimationFrame(drawGame);
+            frames++;
 
-    setupControls();
-}
+            ctx.clearRect(0, 0, width, height);
 
-function setupControls() {
-    const handleGrab = (side) => {
-        const idx = side === 'L' ? 0 : 1;
-        const hand = side === 'L' ? player.lHand : player.rHand;
-        const btn = document.getElementById('btn-' + side.toLowerCase());
+            // Земля (линия)
+            ctx.beginPath();
+            ctx.moveTo(0, height - 100);
+            ctx.lineTo(width, height - 100);
+            ctx.strokeStyle = '#535353';
+            ctx.lineWidth = 2;
+            ctx.stroke();
 
-        if(player.grabs[idx]) {
-            scene.matter.world.removeConstraint(player.grabs[idx]);
-            player.grabs[idx] = null;
-            btn.classList.remove('active-grab');
-        } else {
-            const bodies = scene.matter.world.localWorld.bodies;
-            for(let b of bodies) {
-                if(b === player.body.body || b === player.lHand.body || b === player.rHand.body) continue;
-                if(Phaser.Math.Distance.Between(hand.x, hand.y, b.position.x, b.position.y) < 40) {
-                    player.grabs[idx] = scene.matter.add.constraint(hand, b, 5, 0.8);
-                    btn.classList.add('active-grab');
-                    break;
+            // Дино
+            dino.update();
+            dino.draw();
+
+            // Кактусы
+            spawnObstacle();
+            
+            for (let i = 0; i < obstacles.length; i++) {
+                let ob = obstacles[i];
+                ob.x -= gameSpeed;
+
+                // Рисуем кактус
+                ctx.fillStyle = '#535353';
+                // Основа
+                ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+                // Ветки (декор)
+                if (ob.h > 35) {
+                    ctx.fillRect(ob.x - 5, ob.y + 10, 5, 10);
+                    ctx.fillRect(ob.x + ob.w, ob.y + 15, 5, 10);
+                }
+
+                // Подсчет очков
+                if (ob.x + ob.w < dino.x && !ob.marked) {
+                    score++;
+                    document.getElementById('scoreVal').innerText = score;
+                    ob.marked = true;
+                    if(score % 5 === 0) gameSpeed += 0.2;
+                }
+
+                // Удаление
+                if (ob.x + ob.w < 0) {
+                    obstacles.splice(i, 1);
+                    i--;
+                }
+
+                // Столкновение (Collision)
+                if (
+                    dino.x < ob.x + ob.w - 5 &&
+                    dino.x + dino.w - 10 > ob.x &&
+                    dino.y < ob.y + ob.h &&
+                    dino.y + dino.h > ob.y
+                ) {
+                    gameOver();
                 }
             }
         }
-    };
 
-    document.getElementById('btn-l').onclick = () => handleGrab('L');
-    document.getElementById('btn-r').onclick = () => handleGrab('R');
-
-    // Чат
-    document.getElementById('chat-in').onkeydown = e => {
-        if(e.key === 'Enter' && e.target.value) {
-            addChat("Я", e.target.value);
-            conn.send({type:'chat', msg: e.target.value});
-            e.target.value = '';
+        function gameOver() {
+            gameRunning = false;
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(0,0,width,height);
+            
+            ctx.fillStyle = "white";
+            ctx.font = "30px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("GAME OVER", width/2, height/2);
+            ctx.font = "16px sans-serif";
+            ctx.fillText("Покажите ладонь, чтобы начать заново", width/2, height/2 + 40);
         }
-    };
-}
 
-function update() {
-    if(!player || !conn) return;
-
-    // Управление: руки летят за указателем
-    if(this.input.activePointer.isDown) {
-        const p = this.input.activePointer;
-        const hand = p.worldX < player.body.x ? player.lHand : player.rHand;
-        const force = 0.004;
-        hand.applyForce({x: (p.worldX - hand.x) * force, y: (p.worldY - hand.y) * force});
-    }
-
-    // Синхронизация
-    conn.send({
-        type: 'sync',
-        state: {
-            bx: player.body.x, by: player.body.y, br: player.body.rotation,
-            lx: player.lHand.x, ly: player.lHand.y,
-            rx: player.rHand.x, ry: player.rHand.y
+        function restartGame() {
+            obstacles = [];
+            score = 0;
+            document.getElementById('scoreVal').innerText = 0;
+            gameSpeed = 6;
+            gameRunning = true;
+            drawGame();
         }
-    });
-}
 
-function syncPartner(s) {
-    if(!partner) return;
-    partner.body.setPosition(s.bx, s.by).setRotation(s.br);
-    partner.lHand.setPosition(s.lx, s.ly);
-    partner.rHand.setPosition(s.rx, s.ry);
-}
+        // === 3. MEDIAPIPE AI (Управление) ===
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const handCanvas = document.getElementById('hand-canvas');
+        const handCtx = handCanvas.getContext('2d');
+        const gestureIndicator = document.getElementById('gesture-indicator');
+        const loadingScreen = document.getElementById('loading');
 
-function addChat(u, m) {
-    const b = document.getElementById('messages');
-    b.innerHTML += `<div>[${u}]: ${m}</div>`;
-    b.scrollTop = b.scrollHeight;
-}
+        function onResults(results) {
+            // Убираем экран загрузки, когда AI начал работать
+            if (loadingScreen.style.display !== 'none') {
+                loadingScreen.style.display = 'none';
+                if(!gameRunning) restartGame();
+            }
 
-function showSms(t) {
-    const s = document.getElementById('sms');
-    s.innerText = t; s.style.top = '20px';
-    setTimeout(() => s.style.top = '-100px', 3000);
-}
-</script>
+            handCtx.save();
+            handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
+            
+            // Рисуем видео в маленьком окошке
+            handCtx.drawImage(results.image, 0, 0, handCanvas.width, handCanvas.height);
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // Рисуем скелет руки
+                drawConnectors(handCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
+                
+                // --- ЛОГИКА ЖЕСТОВ ---
+                // Точки: 4(большой), 8(указательный), 12(средний), 16(безымянный), 20(мизинец)
+                // Точка 0 - запястье
+                
+                // Вычисляем, открыта рука или закрыта
+                // Проверяем, выше ли кончики пальцев их оснований (для вертикальной руки)
+                // Но лучше использовать расстояние от запястья (0) до кончиков
+                
+                const wrist = landmarks[0];
+                const thumbTip = landmarks[4];
+                const pinkyTip = landmarks[20];
+                const middleTip = landmarks[12];
+                const middleBase = landmarks[9];
+
+                // Расстояние между большим и мизинцем (ширина ладони)
+                const spread = Math.hypot(thumbTip.x - pinkyTip.x, thumbTip.y - pinkyTip.y);
+                // Размер руки (эталон)
+                const handSize = Math.hypot(wrist.x - middleBase.x, wrist.y - middleBase.y) * 2;
+                
+                // Коэффициент "растопыренности"
+                const ratio = spread / handSize;
+                
+                // ПОРОГ: Для мобилок лучше чуть меньше, так как рука дальше
+                const JUMP_THRESHOLD = 0.55; 
+
+                if (ratio > JUMP_THRESHOLD) {
+                    gestureIndicator.innerText = "ПРЫЖОК";
+                    gestureIndicator.style.color = "#ff4757";
+                    
+                    if(gameRunning) {
+                        dino.jump();
+                    } else {
+                        // Рестарт игры (с небольшой задержкой, чтобы не спамить)
+                        if (Date.now() % 100 < 10) restartGame(); 
+                    }
+                } else {
+                    gestureIndicator.innerText = "БЕГ";
+                    gestureIndicator.style.color = "#2ed573";
+                }
+            } else {
+                gestureIndicator.innerText = "НЕТ РУКИ";
+                gestureIndicator.style.color = "#ccc";
+            }
+            handCtx.restore();
+        }
+
+        const hands = new Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 0, // ВАЖНО: 0 - это Lite модель, самая быстрая для телефонов
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults(onResults);
+
+        // Настройка камеры для телефонов
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 640,
+            height: 480,
+            facingMode: 'user' // ВАЖНО: 'user' = передняя камера
+        });
+        
+        camera.start();
+
+    </script>
 </body>
 </html>
