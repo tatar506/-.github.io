@@ -3,177 +3,280 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Детектор Эмоций</title>
+    <title>AI Emotion Scanner</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
+        /* --- Стилизация и Анимация --- */
         body {
             margin: 0;
-            padding: 0;
-            width: 100vw;
+            background-color: #0f0f12;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             height: 100vh;
+        }
+
+        /* Контейнер видео */
+        #video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #222;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
-        }
-
-        #container {
-            position: relative;
-            width: 100%;
-            max-width: 640px; /* Ограничение ширины для планшетов */
-            display: flex;
-            justify-content: center;
+            z-index: 1;
         }
 
         video {
+            position: absolute;
             width: 100%;
-            height: auto;
-            border-radius: 10px;
-            /* Зеркальное отображение для селфи-камеры */
-            transform: scaleX(-1); 
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Зеркало */
+            opacity: 0; /* Скрыто до полной загрузки */
+            transition: opacity 1s ease;
         }
 
         canvas {
             position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            z-index: 2;
+        }
+
+        /* Экран загрузки */
+        #loading-screen {
+            position: absolute;
             top: 0;
             left: 0;
-            /* Канвас тоже нужно отзеркалить, чтобы совпало с видео */
-            transform: scaleX(-1); 
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s;
         }
 
-        #status {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            z-index: 10;
-            text-align: center;
-            font-size: 14px;
+        /* Анимация спиннера */
+        .spinner {
+            width: 80px;
+            height: 80px;
+            border: 4px solid rgba(0, 255, 204, 0.1);
+            border-top: 4px solid #00ffcc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite, glow 2s ease-in-out infinite alternate;
+            margin-bottom: 20px;
         }
 
-        #emotions-list {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            z-index: 10;
-            max-height: 150px;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 10px #00ffcc, 0 0 20px #00ffcc; }
+            to { box-shadow: 0 0 20px #00ffcc, 0 0 40px #00ffcc; }
+        }
+
+        /* Логи */
+        #logs {
+            width: 80%;
+            max-width: 400px;
+            height: 150px;
             overflow-y: auto;
+            font-size: 12px;
+            text-align: left;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+            color: #00ffcc;
+        }
+
+        .log-line { margin: 2px 0; }
+        .log-error { color: #ff3333; font-weight: bold; }
+        .log-success { color: #33ff33; }
+
+        /* Панель с эмоциями (HUD) */
+        #hud {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            padding: 15px;
+            border-radius: 12px;
+            border-left: 3px solid #00ffcc;
+            display: none; /* Скрыто при загрузке */
+        }
+
+        .emotion-item {
+            font-size: 14px;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            width: 180px;
+        }
+        .bar-bg {
+            width: 80px;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            margin-top: 6px;
+        }
+        .bar-fill {
+            height: 100%;
+            background: #00ffcc;
+            border-radius: 3px;
+            transition: width 0.2s;
         }
     </style>
-    <!-- Подключаем библиотеку face-api.js через CDN -->
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
 
-    <div id="status">Загрузка моделей...</div>
-    
-    <div id="container">
-        <video id="video" autoplay muted playsinline></video>
-        <!-- Канвас добавится автоматически скриптом -->
+    <!-- Экран загрузки -->
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <div id="status-text">Инициализация системы...</div>
+        <div id="logs"></div>
     </div>
 
-    <div id="emotions-list">Ожидание лица...</div>
+    <!-- Основной интерфейс -->
+    <div id="video-container">
+        <video id="video" autoplay muted playsinline></video>
+    </div>
+
+    <div id="hud">
+        <div id="emotions-data">Ожидание лица...</div>
+    </div>
 
     <script>
-        const video = document.getElementById('video');
-        const statusDiv = document.getElementById('status');
-        const emotionsDiv = document.getElementById('emotions-list');
+        // --- Настройки ---
+        const VIDEO_EL = document.getElementById('video');
+        const LOADING_SCREEN = document.getElementById('loading-screen');
+        const LOGS_EL = document.getElementById('logs');
+        const HUD_EL = document.getElementById('hud');
+        const EMOTIONS_EL = document.getElementById('emotions-data');
+        const CONTAINER = document.getElementById('video-container');
         
-        // Путь к моделям (создайте папку models в репозитории!)
-        const MODELS_URI = './models'; 
+        // ВАЖНО: Путь к моделям. './models' означает папку models рядом с index.html
+        const MODELS_PATH = './models';
 
-        // Загрузка моделей
-        Promise.all([
-            // Tiny Face Detector - легкая модель для телефонов
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URI),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_URI),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URI),
-            faceapi.nets.faceExpressionNet.loadFromUri(MODELS_URI)
-        ]).then(startVideo).catch(err => {
-            console.error(err);
-            statusDiv.innerText = "Ошибка загрузки моделей. Проверьте путь!";
-        });
-
-        // Запуск камеры
-        function startVideo() {
-            statusDiv.innerText = "Запуск камеры...";
-            
-            navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    facingMode: "user", // Использовать фронтальную камеру
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
-                } 
-            })
-            .then(stream => {
-                video.srcObject = stream;
-            })
-            .catch(err => {
-                console.error("Ошибка камеры:", err);
-                statusDiv.innerText = "Доступ к камере запрещен!";
-            });
+        // --- Логгер ---
+        function log(msg, type = 'info') {
+            const line = document.createElement('div');
+            line.className = 'log-line ' + (type === 'error' ? 'log-error' : type === 'success' ? 'log-success' : '');
+            line.innerText = `> ${msg}`;
+            LOGS_EL.appendChild(line);
+            LOGS_EL.scrollTop = LOGS_EL.scrollHeight;
+            console.log(msg);
         }
 
-        video.addEventListener('play', () => {
-            statusDiv.innerText = "Работает";
-            
-            // Создаем канвас для рисования поверх видео
-            const canvas = faceapi.createCanvasFromMedia(video);
-            document.getElementById('container').append(canvas);
-            
-            const displaySize = { width: video.videoWidth, height: video.videoHeight };
-            faceapi.matchDimensions(canvas, displaySize);
-
-            // Запускаем цикл распознавания каждые 100мс
-            setInterval(async () => {
-                // Используем TinyFaceDetectorOptions для скорости на мобильных
-                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-                    .withFaceLandmarks()
-                    .withFaceExpressions();
-
-                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+        // --- Главная функция запуска ---
+        async function startApp() {
+            try {
+                log("Проверка совместимости браузера...");
                 
-                // Очищаем канвас перед новым кадром
-                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                
-                // Рисуем рамки и эмоции на видео
-                faceapi.draw.drawDetections(canvas, resizedDetections);
-                faceapi.draw.drawFaceExpressions(canvas, resizedDetections);
-
-                // Вывод текста эмоций в отдельный блок
-                if (resizedDetections.length > 0) {
-                    const expressions = resizedDetections[0].expressions;
-                    // Сортируем эмоции по вероятности
-                    const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
+                // 1. Загрузка моделей
+                log("Загрузка нейросетей...", 'info');
+                try {
+                    await faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_PATH);
+                    log("Модель детектора лиц загружена", 'success');
                     
-                    let textHTML = "<strong>Эмоции:</strong><br>";
-                    sorted.forEach(([emotion, value]) => {
-                        // Показываем только если уверенность > 5%
-                        if(value > 0.05) {
-                            textHTML += `${translateEmotion(emotion)}: ${Math.round(value * 100)}%<br>`;
-                        }
-                    });
-                    emotionsDiv.innerHTML = textHTML;
-                } else {
-                    emotionsDiv.innerHTML = "Лицо не найдено";
+                    await faceapi.nets.faceExpressionNet.loadFromUri(MODELS_PATH);
+                    log("Модель эмоций загружена", 'success');
+                } catch (err) {
+                    throw new Error("Не удалось загрузить модели. Проверьте, создали ли вы папку 'models' и загрузили ли туда файлы? Ошибка: " + err.message);
                 }
 
-            }, 100);
-        });
+                // 2. Запуск камеры
+                log("Запрос доступа к камере...", 'info');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    },
+                    audio: false
+                });
+                
+                VIDEO_EL.srcObject = stream;
+                log("Камера подключена", 'success');
 
-        // Перевод эмоций на русский
-        function translateEmotion(englishName) {
-            const dictionary = {
-                neutral: "Нейтрально",
+                // 3. Ожидание первого кадра
+                VIDEO_EL.onloadedmetadata = () => {
+                    log("Видеопоток получен. Запуск анализатора...", 'success');
+                    VIDEO_EL.play();
+                    startDetection();
+                    
+                    // Убираем экран загрузки
+                    setTimeout(() => {
+                        LOADING_SCREEN.style.opacity = '0';
+                        setTimeout(() => LOADING_SCREEN.style.display = 'none', 500);
+                        VIDEO_EL.style.opacity = '1';
+                        HUD_EL.style.display = 'block';
+                    }, 1000);
+                };
+
+            } catch (error) {
+                log(error.message, 'error');
+                document.getElementById('status-text').innerText = "ОШИБКА ЗАПУСКА";
+                document.querySelector('.spinner').style.borderColor = 'red';
+            }
+        }
+
+        // --- Процесс распознавания ---
+        function startDetection() {
+            const canvas = faceapi.createCanvasFromMedia(VIDEO_EL);
+            CONTAINER.append(canvas);
+            
+            const displaySize = { width: VIDEO_EL.videoWidth, height: VIDEO_EL.videoHeight };
+            faceapi.matchDimensions(canvas, displaySize);
+
+            // Обработка ресайза окна (поворот телефона)
+            window.addEventListener('resize', () => {
+               // В реальном проекте тут нужна сложная логика,
+               // для простоты просто обновим страницу при повороте
+               // location.reload();
+            });
+
+            setInterval(async () => {
+                if (VIDEO_EL.paused || VIDEO_EL.ended) return;
+
+                // Детекция
+                const detections = await faceapi.detectAllFaces(VIDEO_EL, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceExpressions();
+
+                // Отрисовка
+                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Рисуем рамки (опционально)
+                faceapi.draw.drawDetections(canvas, resizedDetections);
+
+                // Обработка данных
+                if (resizedDetections.length > 0) {
+                    const expressions = resizedDetections[0].expressions;
+                    updateHUD(expressions);
+                } else {
+                    EMOTIONS_EL.innerHTML = "Лицо не найдено";
+                }
+
+            }, 100); // 10 FPS
+        }
+
+        // --- Обновление интерфейса (HUD) ---
+        function updateHUD(expressions) {
+            const emotionsRu = {
+                neutral: "Спокойствие",
                 happy: "Счастье",
                 sad: "Грусть",
                 angry: "Злость",
@@ -181,14 +284,34 @@
                 disgusted: "Отвращение",
                 surprised: "Удивление"
             };
-            return dictionary[englishName] || englishName;
+
+            // Сортировка от большего к меньшему
+            const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
+            
+            let html = "";
+            sorted.forEach(([key, val]) => {
+                // Показываем только если вероятность > 1%
+                if (val > 0.01) {
+                    const percent = Math.round(val * 100);
+                    const color = percent > 50 ? '#00ffcc' : '#555';
+                    
+                    html += `
+                        <div class="emotion-item">
+                            <span>${emotionsRu[key] || key}</span>
+                            <span>${percent}%</span>
+                        </div>
+                        <div class="bar-bg">
+                            <div class="bar-fill" style="width: ${percent}%; background: ${percent > 70 ? '#ff0055' : '#00ffcc'}"></div>
+                        </div>
+                    `;
+                }
+            });
+            EMOTIONS_EL.innerHTML = html;
         }
-        
-        // Корректировка размера канваса при изменении размера окна (поворот экрана)
-        window.addEventListener('resize', () => {
-             // Простая перезагрузка для корректной подстройки размеров на мобильных
-             // location.reload(); 
-        });
+
+        // Запуск при загрузке страницы
+        window.addEventListener('load', startApp);
+
     </script>
 </body>
 </html>
