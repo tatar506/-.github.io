@@ -3,409 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dino AI Mobile</title>
-    <!-- Библиотеки MediaPipe -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-
+    <title>Детектор Эмоций</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #f7f7f7;
-            font-family: sans-serif;
-            overflow: hidden;
-            touch-action: none; /* Отключаем жесты браузера */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            width: 100vw;
             height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #222;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
         }
 
-        /* Скрываем само видео, нам нужен только результат */
-        .input_video { display: none; }
+        #container {
+            position: relative;
+            width: 100%;
+            max-width: 640px; /* Ограничение ширины для планшетов */
+            display: flex;
+            justify-content: center;
+        }
 
-        /* Окно с камерой (в углу) */
-        #hand-canvas {
+        video {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            /* Зеркальное отображение для селфи-камеры */
+            transform: scaleX(-1); 
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            /* Канвас тоже нужно отзеркалить, чтобы совпало с видео */
+            transform: scaleX(-1); 
+        }
+
+        #status {
             position: absolute;
             top: 10px;
-            right: 10px;
-            width: 100px;
-            height: 75px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            z-index: 100;
-            transform: scaleX(-1); /* Зеркалим */
-            border: 2px solid rgba(255,255,255,0.5);
-        }
-
-        /* Основной холст игры */
-        #game-canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        #ui-layer {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            pointer-events: none;
-            z-index: 50;
-        }
-
-        .status {
-            font-size: 14px;
-            color: #535353;
-            background: rgba(255,255,255,0.8);
-            padding: 5px 10px;
-            border-radius: 5px;
-            margin-bottom: 5px;
-        }
-
-        .gesture-box {
-            font-size: 24px;
-            font-weight: 900;
-            text-transform: uppercase;
-            color: #535353;
-            text-shadow: 2px 2px 0px #fff;
-        }
-        
-        #loading {
-            position: absolute;
-            top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 20px;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            z-index: 10;
             text-align: center;
-            z-index: 200;
+            font-size: 14px;
+        }
+
+        #emotions-list {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 10;
+            max-height: 150px;
+            overflow-y: auto;
         }
     </style>
+    <!-- Подключаем библиотеку face-api.js через CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
 
-    <div id="loading">Запуск камеры и нейросети...<br><small>Разрешите доступ к камере</small></div>
-
-    <div id="ui-layer">
-        <div class="status">Очки: <span id="scoreVal">0</span></div>
-        <div class="gesture-box" id="gesture-indicator">СТОП</div>
-    </div>
+    <div id="status">Загрузка моделей...</div>
     
-    <video class="input_video" playsinline></video>
-    <canvas id="hand-canvas"></canvas>
-    <canvas id="game-canvas"></canvas>
+    <div id="container">
+        <video id="video" autoplay muted playsinline></video>
+        <!-- Канвас добавится автоматически скриптом -->
+    </div>
+
+    <div id="emotions-list">Ожидание лица...</div>
 
     <script>
-        // === 1. ГРАФИКА (SPRITES) ===
-        // Создаем изображения программно (Base64), чтобы не зависеть от внешних файлов
+        const video = document.getElementById('video');
+        const statusDiv = document.getElementById('status');
+        const emotionsDiv = document.getElementById('emotions-list');
         
-        const dinoImg = new Image();
-        const cactusImg = new Image();
-        
-        // Простой пиксель-арт динозавра (закодирован)
-        dinoImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABmJLR0QA/wD/AP+gvaeTAAAAZklEQVR4nO3QQQqAQBADwP3/o3ePHgQhS1uYgX27k1kJAAAAAACA35x0z9309D/gCpjfFjB/j8BvC5i/R+C3BczfI/DbAubvEfhtAfP3CPy2gPl7BH5bwPw9Ar8tYP4eAQAAAAAA4I4L/NwDF+ujQ/EAAAAASUVORK5CYII='; 
-        // Примечание: Это упрощенный placeholder (черный квадрат). 
-        // Для полноценной графики мы будем рисовать на канвасе "красиво".
+        // Путь к моделям (создайте папку models в репозитории!)
+        const MODELS_URI = './models'; 
 
-        // === 2. ИГРОВОЙ ДВИЖОК ===
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
-        let width, height;
+        // Загрузка моделей
+        Promise.all([
+            // Tiny Face Detector - легкая модель для телефонов
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URI),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_URI),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URI),
+            faceapi.nets.faceExpressionNet.loadFromUri(MODELS_URI)
+        ]).then(startVideo).catch(err => {
+            console.error(err);
+            statusDiv.innerText = "Ошибка загрузки моделей. Проверьте путь!";
+        });
 
-        // Переменные игры
-        let gameSpeed = 6;
-        let score = 0;
-        let frames = 0;
-        let gameRunning = false;
-        let obstacles = [];
-
-        // Динозавр
-        const dino = {
-            x: 50,
-            y: 0,
-            w: 44, // ширина
-            h: 47, // высота
-            dy: 0,
-            jumpForce: 13,
-            originalGravity: 0.6,
-            gravity: 0.6,
-            grounded: false,
-            legFrame: 0, // для анимации ног
+        // Запуск камеры
+        function startVideo() {
+            statusDiv.innerText = "Запуск камеры...";
             
-            draw: function() {
-                // Анимация бега (меняем ноги каждые 10 кадров)
-                let legOffset = 0;
-                if (this.grounded) {
-                    if (Math.floor(frames / 8) % 2 === 0) {
-                        legOffset = 1; // Левая нога
-                    } else {
-                        legOffset = -1; // Правая нога
-                    }
-                }
-
-                ctx.fillStyle = '#535353';
-                
-                // Рисуем тело (пиксель-арт стилизация кодом)
-                // Голова
-                ctx.fillRect(this.x + 20, this.y, 20, 15);
-                // Глаз
-                ctx.clearRect(this.x + 25, this.y + 2, 4, 4);
-                // Шея и тело
-                ctx.fillRect(this.x, this.y + 15, 30, 20);
-                ctx.fillRect(this.x + 30, this.y + 15, 10, 8); // Часть шеи
-                // Хвост
-                ctx.fillRect(this.x - 10, this.y + 18, 10, 10);
-                
-                // Ноги (с анимацией)
-                if (legOffset === 1) {
-                    ctx.fillRect(this.x + 5, this.y + 35, 6, 12); // Левая
-                    ctx.fillRect(this.x + 20, this.y + 35, 6, 8); // Правая поднята
-                } else {
-                    ctx.fillRect(this.x + 5, this.y + 35, 6, 8); // Левая поднята
-                    ctx.fillRect(this.x + 20, this.y + 35, 6, 12); // Правая
-                }
-            },
-            
-            update: function() {
-                // Физика прыжка
-                if (!this.grounded) {
-                    this.dy += this.gravity;
-                    this.y += this.dy;
-                }
-
-                // Столкновение с землей
-                let groundLevel = height - 100;
-                if (this.y + this.h > groundLevel) {
-                    this.y = groundLevel - this.h;
-                    this.dy = 0;
-                    this.grounded = true;
-                } else {
-                    this.grounded = false;
-                }
-            },
-            
-            jump: function() {
-                if (this.grounded) {
-                    this.dy = -this.jumpForce;
-                    this.grounded = false;
-                }
-            }
-        };
-
-        // Изменение размеров окна
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            width = canvas.width;
-            height = canvas.height;
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        function spawnObstacle() {
-            // Адаптивный спавн (реже на узких экранах)
-            let minGap = width > 500 ? 90 : 120; 
-            
-            if (frames % Math.floor(Math.random() * minGap + 80) === 0) {
-                // Тип кактуса (маленький или большой)
-                let type = Math.random() > 0.5 ? 1 : 2; 
-                obstacles.push({
-                    x: width,
-                    y: height - 100 - (type === 1 ? 30 : 50),
-                    w: type === 1 ? 20 : 30,
-                    h: type === 1 ? 30 : 50,
-                    marked: false
-                });
-            }
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: "user", // Использовать фронтальную камеру
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                } 
+            })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Ошибка камеры:", err);
+                statusDiv.innerText = "Доступ к камере запрещен!";
+            });
         }
 
-        function drawGame() {
-            if (!gameRunning) return;
-            requestAnimationFrame(drawGame);
-            frames++;
-
-            ctx.clearRect(0, 0, width, height);
-
-            // Земля (линия)
-            ctx.beginPath();
-            ctx.moveTo(0, height - 100);
-            ctx.lineTo(width, height - 100);
-            ctx.strokeStyle = '#535353';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // Дино
-            dino.update();
-            dino.draw();
-
-            // Кактусы
-            spawnObstacle();
+        video.addEventListener('play', () => {
+            statusDiv.innerText = "Работает";
             
-            for (let i = 0; i < obstacles.length; i++) {
-                let ob = obstacles[i];
-                ob.x -= gameSpeed;
-
-                // Рисуем кактус
-                ctx.fillStyle = '#535353';
-                // Основа
-                ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
-                // Ветки (декор)
-                if (ob.h > 35) {
-                    ctx.fillRect(ob.x - 5, ob.y + 10, 5, 10);
-                    ctx.fillRect(ob.x + ob.w, ob.y + 15, 5, 10);
-                }
-
-                // Подсчет очков
-                if (ob.x + ob.w < dino.x && !ob.marked) {
-                    score++;
-                    document.getElementById('scoreVal').innerText = score;
-                    ob.marked = true;
-                    if(score % 5 === 0) gameSpeed += 0.2;
-                }
-
-                // Удаление
-                if (ob.x + ob.w < 0) {
-                    obstacles.splice(i, 1);
-                    i--;
-                }
-
-                // Столкновение (Collision)
-                if (
-                    dino.x < ob.x + ob.w - 5 &&
-                    dino.x + dino.w - 10 > ob.x &&
-                    dino.y < ob.y + ob.h &&
-                    dino.y + dino.h > ob.y
-                ) {
-                    gameOver();
-                }
-            }
-        }
-
-        function gameOver() {
-            gameRunning = false;
-            ctx.fillStyle = "rgba(0,0,0,0.5)";
-            ctx.fillRect(0,0,width,height);
+            // Создаем канвас для рисования поверх видео
+            const canvas = faceapi.createCanvasFromMedia(video);
+            document.getElementById('container').append(canvas);
             
-            ctx.fillStyle = "white";
-            ctx.font = "30px sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText("GAME OVER", width/2, height/2);
-            ctx.font = "16px sans-serif";
-            ctx.fillText("Покажите ладонь, чтобы начать заново", width/2, height/2 + 40);
-        }
+            const displaySize = { width: video.videoWidth, height: video.videoHeight };
+            faceapi.matchDimensions(canvas, displaySize);
 
-        function restartGame() {
-            obstacles = [];
-            score = 0;
-            document.getElementById('scoreVal').innerText = 0;
-            gameSpeed = 6;
-            gameRunning = true;
-            drawGame();
-        }
+            // Запускаем цикл распознавания каждые 100мс
+            setInterval(async () => {
+                // Используем TinyFaceDetectorOptions для скорости на мобильных
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceExpressions();
 
-        // === 3. MEDIAPIPE AI (Управление) ===
-        const videoElement = document.getElementsByClassName('input_video')[0];
-        const handCanvas = document.getElementById('hand-canvas');
-        const handCtx = handCanvas.getContext('2d');
-        const gestureIndicator = document.getElementById('gesture-indicator');
-        const loadingScreen = document.getElementById('loading');
+                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                
+                // Очищаем канвас перед новым кадром
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Рисуем рамки и эмоции на видео
+                faceapi.draw.drawDetections(canvas, resizedDetections);
+                faceapi.draw.drawFaceExpressions(canvas, resizedDetections);
 
-        function onResults(results) {
-            // Убираем экран загрузки, когда AI начал работать
-            if (loadingScreen.style.display !== 'none') {
-                loadingScreen.style.display = 'none';
-                if(!gameRunning) restartGame();
-            }
-
-            handCtx.save();
-            handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
-            
-            // Рисуем видео в маленьком окошке
-            handCtx.drawImage(results.image, 0, 0, handCanvas.width, handCanvas.height);
-            
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                
-                // Рисуем скелет руки
-                drawConnectors(handCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
-                
-                // --- ЛОГИКА ЖЕСТОВ ---
-                // Точки: 4(большой), 8(указательный), 12(средний), 16(безымянный), 20(мизинец)
-                // Точка 0 - запястье
-                
-                // Вычисляем, открыта рука или закрыта
-                // Проверяем, выше ли кончики пальцев их оснований (для вертикальной руки)
-                // Но лучше использовать расстояние от запястья (0) до кончиков
-                
-                const wrist = landmarks[0];
-                const thumbTip = landmarks[4];
-                const pinkyTip = landmarks[20];
-                const middleTip = landmarks[12];
-                const middleBase = landmarks[9];
-
-                // Расстояние между большим и мизинцем (ширина ладони)
-                const spread = Math.hypot(thumbTip.x - pinkyTip.x, thumbTip.y - pinkyTip.y);
-                // Размер руки (эталон)
-                const handSize = Math.hypot(wrist.x - middleBase.x, wrist.y - middleBase.y) * 2;
-                
-                // Коэффициент "растопыренности"
-                const ratio = spread / handSize;
-                
-                // ПОРОГ: Для мобилок лучше чуть меньше, так как рука дальше
-                const JUMP_THRESHOLD = 0.55; 
-
-                if (ratio > JUMP_THRESHOLD) {
-                    gestureIndicator.innerText = "ПРЫЖОК";
-                    gestureIndicator.style.color = "#ff4757";
+                // Вывод текста эмоций в отдельный блок
+                if (resizedDetections.length > 0) {
+                    const expressions = resizedDetections[0].expressions;
+                    // Сортируем эмоции по вероятности
+                    const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
                     
-                    if(gameRunning) {
-                        dino.jump();
-                    } else {
-                        // Рестарт игры (с небольшой задержкой, чтобы не спамить)
-                        if (Date.now() % 100 < 10) restartGame(); 
-                    }
+                    let textHTML = "<strong>Эмоции:</strong><br>";
+                    sorted.forEach(([emotion, value]) => {
+                        // Показываем только если уверенность > 5%
+                        if(value > 0.05) {
+                            textHTML += `${translateEmotion(emotion)}: ${Math.round(value * 100)}%<br>`;
+                        }
+                    });
+                    emotionsDiv.innerHTML = textHTML;
                 } else {
-                    gestureIndicator.innerText = "БЕГ";
-                    gestureIndicator.style.color = "#2ed573";
+                    emotionsDiv.innerHTML = "Лицо не найдено";
                 }
-            } else {
-                gestureIndicator.innerText = "НЕТ РУКИ";
-                gestureIndicator.style.color = "#ccc";
-            }
-            handCtx.restore();
+
+            }, 100);
+        });
+
+        // Перевод эмоций на русский
+        function translateEmotion(englishName) {
+            const dictionary = {
+                neutral: "Нейтрально",
+                happy: "Счастье",
+                sad: "Грусть",
+                angry: "Злость",
+                fearful: "Страх",
+                disgusted: "Отвращение",
+                surprised: "Удивление"
+            };
+            return dictionary[englishName] || englishName;
         }
-
-        const hands = new Hands({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }});
-
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 0, // ВАЖНО: 0 - это Lite модель, самая быстрая для телефонов
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
-
-        hands.onResults(onResults);
-
-        // Настройка камеры для телефонов
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({image: videoElement});
-            },
-            width: 640,
-            height: 480,
-            facingMode: 'user' // ВАЖНО: 'user' = передняя камера
-        });
         
-        camera.start();
-
+        // Корректировка размера канваса при изменении размера окна (поворот экрана)
+        window.addEventListener('resize', () => {
+             // Простая перезагрузка для корректной подстройки размеров на мобильных
+             // location.reload(); 
+        });
     </script>
 </body>
 </html>
