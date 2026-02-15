@@ -2,312 +2,226 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Emotion Scanner</title>
-    <!-- Подключаем библиотеку -->
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android Face Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <style>
-        /* --- Стилизация --- */
-        body {
-            margin: 0;
-            background-color: #0f0f12;
-            color: #00ffcc;
-            font-family: 'Courier New', Courier, monospace;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            height: 100vh;
-        }
+        :root { --primary-color: #3ddc84; } /* Android Green */
+        body { margin: 0; padding: 0; background: #000; font-family: 'Roboto', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
 
-        /* Контейнер для видео и канваса */
-        #video-container {
+        /* Корпус телефона */
+        .phone-frame {
+            width: 360px;
+            height: 740px;
+            background: #121212;
+            border: 12px solid #333;
+            border-radius: 40px;
             position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1;
-            background: #000;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
         }
 
-        video {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1); /* Зеркалим как в зеркале */
-            opacity: 0; /* Скрыто пока не загрузится */
-            transition: opacity 1s ease;
-        }
-
-        canvas {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-            z-index: 2;
-        }
-
-        /* Экран загрузки */
-        #loading-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #050505;
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: opacity 0.5s;
-        }
-
-        /* Анимация круга */
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid rgba(0, 255, 204, 0.1);
-            border-top: 4px solid #00ffcc;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-            box-shadow: 0 0 15px #00ffcc;
-        }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* Логи */
-        #logs {
-            width: 90%;
-            max-width: 400px;
-            height: 150px;
-            overflow-y: auto;
-            font-size: 11px;
-            text-align: left;
-            border-top: 1px solid #333;
-            padding-top: 10px;
-            color: #00ffcc;
-            font-family: monospace;
-        }
-
-        .log-line { margin: 2px 0; }
-        .log-error { color: #ff4444; }
-        .log-success { color: #44ff44; }
-
-        /* Интерфейс эмоций */
-        #hud {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            z-index: 10;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
-            padding: 15px;
-            border-radius: 12px;
-            border-left: 3px solid #00ffcc;
-            display: none;
-            max-width: 200px;
-        }
-
-        .emotion-row {
+        /* Статус-бар */
+        .status-bar {
+            height: 30px;
+            padding: 5px 20px;
             display: flex;
             justify-content: space-between;
-            font-size: 14px;
-            margin-bottom: 2px;
+            align-items: center;
+            color: white;
+            font-size: 12px;
+            background: rgba(0,0,0,0.2);
         }
-        
-        .bar-container {
+
+        /* Рабочий стол */
+        .home-screen {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            height: 80%;
+        }
+
+        .app-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            font-size: 10px;
+            transition: 0.2s;
+            padding: 10px;
+            border-radius: 15px;
+        }
+
+        .icon-shape {
+            width: 50px;
+            height: 50px;
+            background: #444;
+            border-radius: 12px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+        }
+
+        /* Эффект фокуса (курсор) */
+        .app-icon.selected {
+            background: rgba(61, 220, 132, 0.3);
+            transform: scale(1.2);
+            border: 2px solid var(--primary-color);
+        }
+
+        /* Навигационная панель */
+        .nav-bar {
+            position: absolute;
+            bottom: 0;
             width: 100%;
-            height: 4px;
-            background: #333;
-            margin-bottom: 8px;
-            border-radius: 2px;
+            height: 50px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            background: rgba(0,0,0,0.8);
         }
-        
-        .bar-fill {
-            height: 100%;
-            background: #00ffcc;
-            width: 0%;
-            transition: width 0.2s ease;
-            border-radius: 2px;
+        .nav-item { width: 20px; height: 20px; border: 2px solid #777; border-radius: 4px; }
+        .nav-circle { border-radius: 50%; width: 25px; height: 25px; }
+
+        /* Виджет камеры (мини) */
+        #video-container {
+            position: absolute;
+            top: 40px;
+            right: 20px;
+            width: 80px;
+            height: 110px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid var(--primary-color);
+            z-index: 100;
+        }
+        video { transform: scaleX(-1); width: 100%; height: 100%; object-fit: cover; }
+
+        /* Индикаторы действий */
+        .action-toast {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--primary-color);
+            color: black;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: none;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
 
-    <!-- Загрузка -->
-    <div id="loading-screen">
-        <div class="spinner"></div>
-        <div id="status-text">Запуск системы...</div>
-        <div id="logs"></div>
+<div class="phone-frame">
+    <div class="status-bar">
+        <span>12:45</span>
+        <span>📶 🔋 98%</span>
     </div>
 
-    <!-- Видео -->
     <div id="video-container">
-        <video id="video" autoplay muted playsinline></video>
+        <video id="input_video"></video>
     </div>
 
-    <!-- Статистика -->
-    <div id="hud">
-        <div id="emotions-data"></div>
+    <div class="home-screen" id="home">
+        <!-- Иконки генерируются JS -->
     </div>
 
-    <script>
-        // --- ССЫЛКА НА МОДЕЛИ (ИСПРАВЛЕНО) ---
-        // Берем модели с официального репозитория библиотеки
-        const MODELS_URI = 'https://justadudewhohacks.github.io/face-api.js/models';
+    <div id="toast" class="action-toast">КЛИК!</div>
 
-        const video = document.getElementById('video');
-        const logsEl = document.getElementById('logs');
-        const hudEl = document.getElementById('hud');
-        const emotionsDataEl = document.getElementById('emotions-data');
-        const loadingScreen = document.getElementById('loading-screen');
+    <div class="nav-bar">
+        <div class="nav-item" style="border-left: 3px solid #777; border-bottom: 3px solid #777; transform: rotate(45deg); width: 12px; height: 12px; border-radius: 0;"></div>
+        <div class="nav-item nav-circle"></div>
+        <div class="nav-item" style="width: 18px; height: 18px;"></div>
+    </div>
+</div>
 
-        // Функция логгера
-        function log(msg, type = 'info') {
-            const div = document.createElement('div');
-            div.className = 'log-line ' + (type === 'error' ? 'log-error' : type === 'success' ? 'log-success' : '');
-            div.innerText = `> ${msg}`;
-            logsEl.appendChild(div);
-            logsEl.scrollTop = logsEl.scrollHeight;
-            console.log(msg);
+<script>
+    const home = document.getElementById('home');
+    const toast = document.getElementById('toast');
+    const apps = [
+        {name: 'Телефон', img: '📞', color: '#4CAF50'},
+        {name: 'Сообщения', img: '💬', color: '#2196F3'},
+        {name: 'Chrome', img: '🌐', color: '#FBBC05'},
+        {name: 'YouTube', img: '▶️', color: '#FF0000'},
+        {name: 'Камера', img: '📷', color: '#607D8B'},
+        {name: 'Карты', img: '📍', color: '#E91E63'},
+        {name: 'Настройки', img: '⚙️', color: '#9E9E9E'},
+        {name: 'Галерея', img: '🖼️', color: '#FF9800'}
+    ];
+
+    // Создаем сетку приложений
+    apps.forEach((app, i) => {
+        const div = document.createElement('div');
+        div.className = 'app-icon';
+        div.id = 'app-' + i;
+        div.innerHTML = `<div class="icon-shape" style="background:${app.color}">${app.img}</div><span>${app.name}</span>`;
+        home.appendChild(div);
+    });
+
+    let currentIndex = 0;
+    function updateSelection(newIndex) {
+        document.querySelectorAll('.app-icon').forEach(el => el.classList.remove('selected'));
+        currentIndex = (newIndex + apps.length) % apps.length;
+        document.getElementById('app-' + currentIndex).classList.add('selected');
+    }
+    updateSelection(0);
+
+    const videoElement = document.getElementById('input_video');
+    let lastActionTime = 0;
+
+    function onResults(results) {
+        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
+        const points = results.multiFaceLandmarks[0];
+        const now = Date.now();
+
+        // 1. МОРГАНИЕ -> КЛИК
+        const eyeDist = points[145].y - points[159].y; 
+        if (eyeDist < 0.013 && now - lastActionTime > 800) {
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 500);
+            lastActionTime = now;
         }
 
-        async function start() {
-            try {
-                log("Инициализация...");
+        // 2. ДВИЖЕНИЕ РТА -> ВЛЕВО/ВПРАВО
+        const mouthCenter = (points[61].x + points[291].x) / 2;
+        const noseTip = points[1].x;
+        const shift = mouthCenter - noseTip;
 
-                // 1. Загрузка нейросетей
-                log("Скачивание моделей нейросети...", 'info');
-                
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URI),
-                    faceapi.nets.faceExpressionNet.loadFromUri(MODELS_URI)
-                ]);
-                
-                log("Модели успешно загружены!", 'success');
-
-                // 2. Доступ к камере
-                log("Запрос камеры...", 'info');
-                
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'user', // Фронтальная камера
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
-                    },
-                    audio: false
-                });
-
-                video.srcObject = stream;
-                log("Камера подключена.", 'success');
-
-                // 3. Запуск видео
-                video.onloadedmetadata = () => {
-                    video.play();
-                    log("Видеопоток активен. Анализ...", 'success');
-                    
-                    // Скрываем загрузку
-                    setTimeout(() => {
-                        loadingScreen.style.opacity = '0';
-                        setTimeout(() => loadingScreen.style.display = 'none', 500);
-                        video.style.opacity = '1';
-                        hudEl.style.display = 'block';
-                        startDetection();
-                    }, 1000);
-                };
-
-            } catch (err) {
-                log("КРИТИЧЕСКАЯ ОШИБКА: " + err.message, 'error');
-                if(err.message.includes("404")) {
-                    log("Сервер моделей недоступен. Попробуйте VPN.", 'error');
-                }
-                document.querySelector('.spinner').style.borderColor = 'red';
+        if (now - lastActionTime > 400) {
+            if (shift < -0.025) { // Рот влево
+                updateSelection(currentIndex - 1);
+                lastActionTime = now;
+            } else if (shift > 0.025) { // Рот вправо
+                updateSelection(currentIndex + 1);
+                lastActionTime = now;
             }
         }
 
-        function startDetection() {
-            const canvas = faceapi.createCanvasFromMedia(video);
-            document.getElementById('video-container').append(canvas);
-            
-            const displaySize = { width: video.videoWidth, height: video.videoHeight };
-            faceapi.matchDimensions(canvas, displaySize);
-
-            // Обработка поворота экрана
-            window.addEventListener('resize', () => {
-                faceapi.matchDimensions(canvas, { width: video.videoWidth, height: video.videoHeight });
-            });
-
-            setInterval(async () => {
-                if (video.paused || video.ended) return;
-
-                // Детекция лиц и эмоций (TinyFaceDetector - быстрый для телефонов)
-                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-                    .withFaceExpressions();
-
-                // Очистка канваса
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Изменение размеров рамок под видео
-                const resizedDetections = faceapi.resizeResults(detections, displaySize);
-
-                // Рисуем рамки (если нужно, раскомментируйте)
-                // faceapi.draw.drawDetections(canvas, resizedDetections);
-
-                if (resizedDetections.length > 0) {
-                    const expressions = resizedDetections[0].expressions;
-                    updateUI(expressions);
-                } else {
-                    emotionsDataEl.innerHTML = "<div style='text-align:center; padding:10px;'>Нет лица</div>";
-                }
-
-            }, 100); // 10 раз в секунду
+        // 3. ОТКРЫТЫЙ РОТ -> СКРОЛЛ (подсветка всех иконок)
+        const mouthOpen = points[14].y - points[13].y;
+        if (mouthOpen > 0.05) {
+            home.style.transform = `translateY(${-Math.sin(now/200)*10}px)`;
+        } else {
+            home.style.transform = `translateY(0)`;
         }
+    }
 
-        function updateUI(expressions) {
-            const ruNames = {
-                neutral: "Нейтрально",
-                happy: "Счастье",
-                sad: "Грусть",
-                angry: "Злость",
-                fearful: "Страх",
-                disgusted: "Отвращение",
-                surprised: "Удивление"
-            };
+    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+    faceMesh.setOptions({ refineLandmarks: true, minDetectionConfidence: 0.5 });
+    faceMesh.onResults(onResults);
 
-            // Сортируем эмоции
-            const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
-            
-            let html = "";
-            sorted.forEach(([key, val]) => {
-                if(val > 0.05) { // Показываем, если больше 5%
-                    const percent = Math.round(val * 100);
-                    // Цвет полоски меняется если эмоция сильная
-                    const barColor = percent > 60 ? '#00ffcc' : '#444';
-                    
-                    html += `
-                        <div class="emotion-row">
-                            <span>${ruNames[key]}</span>
-                            <span>${percent}%</span>
-                        </div>
-                        <div class="bar-container">
-                            <div class="bar-fill" style="width: ${percent}%; background-color: ${barColor}"></div>
-                        </div>
-                    `;
-                }
-            });
-            emotionsDataEl.innerHTML = html;
-        }
-
-        // Запуск при загрузке страницы
-        window.addEventListener('load', start);
-
-    </script>
+    const camera = new Camera(videoElement, {
+        onFrame: async () => { await faceMesh.send({image: videoElement}); },
+        width: 480, height: 640
+    });
+    camera.start();
+</script>
 </body>
 </html>
