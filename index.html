@@ -3,222 +3,266 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Android Face Control</title>
+    <title>FaceOS Pro Prototype</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <style>
-        :root { --primary-color: #3ddc84; } /* Android Green */
-        body { margin: 0; padding: 0; background: #000; font-family: 'Roboto', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        :root { --android-green: #3ddc84; --bg-dark: #000; }
+        body { margin: 0; background: #1a1a1a; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; color: white; overflow: hidden; }
 
-        /* Корпус телефона */
-        .phone-frame {
+        /* Смартфон */
+        #phone {
             width: 360px;
             height: 740px;
-            background: #121212;
+            background: var(--bg-dark);
             border: 12px solid #333;
-            border-radius: 40px;
+            border-radius: 45px;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
-        }
-
-        /* Статус-бар */
-        .status-bar {
-            height: 30px;
-            padding: 5px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: white;
-            font-size: 12px;
-            background: rgba(0,0,0,0.2);
-        }
-
-        /* Рабочий стол */
-        .home-screen {
-            padding: 20px;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            height: 80%;
-        }
-
-        .app-icon {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            color: white;
-            font-size: 10px;
-            transition: 0.2s;
-            padding: 10px;
-            border-radius: 15px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
         }
 
-        .icon-shape {
-            width: 50px;
-            height: 50px;
-            background: #444;
+        /* Камера (превью) */
+        #cam-layer {
+            position: absolute;
+            top: 45px;
+            right: 15px;
+            width: 70px;
+            height: 90px;
             border-radius: 12px;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 20px;
-        }
-
-        /* Эффект фокуса (курсор) */
-        .app-icon.selected {
-            background: rgba(61, 220, 132, 0.3);
-            transform: scale(1.2);
-            border: 2px solid var(--primary-color);
-        }
-
-        /* Навигационная панель */
-        .nav-bar {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 50px;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            background: rgba(0,0,0,0.8);
-        }
-        .nav-item { width: 20px; height: 20px; border: 2px solid #777; border-radius: 4px; }
-        .nav-circle { border-radius: 50%; width: 25px; height: 25px; }
-
-        /* Виджет камеры (мини) */
-        #video-container {
-            position: absolute;
-            top: 40px;
-            right: 20px;
-            width: 80px;
-            height: 110px;
-            border-radius: 10px;
+            border: 2px solid var(--android-green);
             overflow: hidden;
-            border: 2px solid var(--primary-color);
-            z-index: 100;
+            z-index: 1000;
+            background: #222;
         }
         video { transform: scaleX(-1); width: 100%; height: 100%; object-fit: cover; }
 
-        /* Индикаторы действий */
-        .action-toast {
+        /* Статус бар */
+        .status-bar { height: 35px; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; font-size: 13px; z-index: 100; }
+
+        /* Контент ОС */
+        #screen-content { flex: 1; position: relative; width: 100%; }
+
+        /* ГЛАВНЫЙ ЭКРАН */
+        .desktop {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            padding: 20px;
+            transition: 0.5s;
+        }
+        .app-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border-radius: 15px;
+            border: 2px solid transparent;
+        }
+        .app-node.active { border-color: var(--android-green); background: rgba(61, 220, 132, 0.2); transform: scale(1.1); }
+        .app-icon { width: 55px; height: 55px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 28px; margin-bottom: 5px; }
+
+        /* ПРИЛОЖЕНИЕ TIKTOK (FAKE) */
+        #tiktok-app {
             position: absolute;
-            top: 50%;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            display: none; /* Скрыто по умолчанию */
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .tt-video {
+            min-height: 100%;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            border-bottom: 2px solid #222;
+            position: relative;
+        }
+        .tt-ui { position: absolute; right: 10px; bottom: 50px; display: flex; flex-direction: column; gap: 20px; }
+        .tt-btn { width: 45px; height: 45px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+
+        /* Навигационная панель */
+        .nav-bar { height: 50px; background: rgba(0,0,0,0.9); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #222; }
+        .nav-btn { width: 18px; height: 18px; border: 2px solid #666; border-radius: 4px; }
+        
+        /* Индикатор жестов */
+        #gesture-hint {
+            position: absolute;
+            bottom: 70px;
             left: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--primary-color);
+            transform: translateX(-50%);
+            background: var(--android-green);
             color: black;
-            padding: 10px 20px;
+            padding: 5px 15px;
             border-radius: 20px;
+            font-size: 12px;
             font-weight: bold;
             display: none;
-            z-index: 1000;
+            z-index: 10000;
         }
     </style>
 </head>
 <body>
 
-<div class="phone-frame">
+<div id="phone">
     <div class="status-bar">
-        <span>12:45</span>
-        <span>📶 🔋 98%</span>
+        <span id="clock">12:00</span>
+        <span>📶 🔋 100%</span>
     </div>
 
-    <div id="video-container">
+    <div id="cam-layer">
         <video id="input_video"></video>
     </div>
 
-    <div class="home-screen" id="home">
-        <!-- Иконки генерируются JS -->
+    <div id="gesture-hint">ДЕЙСТВИЕ</div>
+
+    <div id="screen-content">
+        <!-- Рабочий стол -->
+        <div id="desktop" class="desktop">
+            <div class="app-node active" data-app="tiktok">
+                <div class="app-icon" style="background: #000; border: 1px solid #333;">📱</div>
+                <span>TikTok</span>
+            </div>
+            <div class="app-node" data-app="photos">
+                <div class="app-icon" style="background: #fff;">🖼️</div>
+                <span>Фото</span>
+            </div>
+            <div class="app-node" data-app="web">
+                <div class="app-icon" style="background: #2196F3;">🌐</div>
+                <span>Browser</span>
+            </div>
+            <div class="app-node" data-app="settings">
+                <div class="app-icon" style="background: #9E9E9E;">⚙️</div>
+                <span>Настройки</span>
+            </div>
+        </div>
+
+        <!-- Fake TikTok App -->
+        <div id="tiktok-app">
+            <div id="tt-container" style="height: 100%; transition: transform 0.4s ease-out;">
+                <div class="tt-video" style="background: linear-gradient(45deg, #f06, #4a9);">
+                    Видео 1: Танцы
+                    <div class="tt-ui"><div class="tt-btn">❤️</div><div class="tt-btn">💬</div></div>
+                </div>
+                <div class="tt-video" style="background: linear-gradient(45deg, #2196F3, #f44336);">
+                    Видео 2: Котятки
+                    <div class="tt-ui"><div class="tt-btn">❤️</div><div class="tt-btn">💬</div></div>
+                </div>
+                <div class="tt-video" style="background: linear-gradient(45deg, #FFEB3B, #4CAF50);">
+                    Видео 3: Лайфхак
+                    <div class="tt-ui"><div class="tt-btn">❤️</div><div class="tt-btn">💬</div></div>
+                </div>
+                <div class="tt-video" style="background: linear-gradient(45deg, #9C27B0, #00BCD4);">
+                    Видео 4: Машины
+                    <div class="tt-ui"><div class="tt-btn">❤️</div><div class="tt-btn">💬</div></div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div id="toast" class="action-toast">КЛИК!</div>
-
     <div class="nav-bar">
-        <div class="nav-item" style="border-left: 3px solid #777; border-bottom: 3px solid #777; transform: rotate(45deg); width: 12px; height: 12px; border-radius: 0;"></div>
-        <div class="nav-item nav-circle"></div>
-        <div class="nav-item" style="width: 18px; height: 18px;"></div>
+        <div class="nav-btn" style="transform: rotate(-45deg); border-right:none; border-top:none; width:12px; height:12px;"></div>
+        <div class="nav-btn" style="border-radius: 50%; width: 22px; height: 22px;"></div>
+        <div class="nav-btn"></div>
     </div>
 </div>
 
 <script>
-    const home = document.getElementById('home');
-    const toast = document.getElementById('toast');
-    const apps = [
-        {name: 'Телефон', img: '📞', color: '#4CAF50'},
-        {name: 'Сообщения', img: '💬', color: '#2196F3'},
-        {name: 'Chrome', img: '🌐', color: '#FBBC05'},
-        {name: 'YouTube', img: '▶️', color: '#FF0000'},
-        {name: 'Камера', img: '📷', color: '#607D8B'},
-        {name: 'Карты', img: '📍', color: '#E91E63'},
-        {name: 'Настройки', img: '⚙️', color: '#9E9E9E'},
-        {name: 'Галерея', img: '🖼️', color: '#FF9800'}
-    ];
+    // Обновление времени
+    setInterval(() => {
+        const d = new Date();
+        document.getElementById('clock').innerText = d.getHours() + ":" + String(d.getMinutes()).padStart(2, '0');
+    }, 1000);
 
-    // Создаем сетку приложений
-    apps.forEach((app, i) => {
-        const div = document.createElement('div');
-        div.className = 'app-icon';
-        div.id = 'app-' + i;
-        div.innerHTML = `<div class="icon-shape" style="background:${app.color}">${app.img}</div><span>${app.name}</span>`;
-        home.appendChild(div);
-    });
+    const desktop = document.getElementById('desktop');
+    const tiktokApp = document.getElementById('tiktok-app');
+    const ttContainer = document.getElementById('tt-container');
+    const hint = document.getElementById('gesture-hint');
+    const appNodes = document.querySelectorAll('.app-node');
 
-    let currentIndex = 0;
-    function updateSelection(newIndex) {
-        document.querySelectorAll('.app-icon').forEach(el => el.classList.remove('selected'));
-        currentIndex = (newIndex + apps.length) % apps.length;
-        document.getElementById('app-' + currentIndex).classList.add('selected');
+    let currentMode = 'home'; // home или tiktok
+    let selectedAppIdx = 0;
+    let ttScrollIdx = 0;
+    let lastAction = 0;
+
+    function showHint(text) {
+        hint.innerText = text;
+        hint.style.display = 'block';
+        setTimeout(() => hint.style.display = 'none', 1000);
     }
-    updateSelection(0);
-
-    const videoElement = document.getElementById('input_video');
-    let lastActionTime = 0;
 
     function onResults(results) {
         if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
-        const points = results.multiFaceLandmarks[0];
+        const pts = results.multiFaceLandmarks[0];
         const now = Date.now();
 
-        // 1. МОРГАНИЕ -> КЛИК
-        const eyeDist = points[145].y - points[159].y; 
-        if (eyeDist < 0.013 && now - lastActionTime > 800) {
-            toast.style.display = 'block';
-            setTimeout(() => toast.style.display = 'none', 500);
-            lastActionTime = now;
+        // 1. МОРГАНИЕ (Клик или вход)
+        const leftEye = pts[145].y - pts[159].y;
+        if (leftEye < 0.012 && now - lastAction > 1000) {
+            if (currentMode === 'home') {
+                const appName = appNodes[selectedAppIdx].getAttribute('data-app');
+                if (appName === 'tiktok') {
+                    currentMode = 'tiktok';
+                    tiktokApp.style.display = 'flex';
+                    desktop.style.display = 'none';
+                    showHint("ОТКРЫТ TIKTOK");
+                }
+            } else {
+                // Если в ТикТоке зажмуриться надолго - выход
+                if (leftEye < 0.008) {
+                    currentMode = 'home';
+                    tiktokApp.style.display = 'none';
+                    desktop.style.display = 'grid';
+                    showHint("ВЫХОД ДОМОЙ");
+                }
+            }
+            lastAction = now;
         }
 
-        // 2. ДВИЖЕНИЕ РТА -> ВЛЕВО/ВПРАВО
-        const mouthCenter = (points[61].x + points[291].x) / 2;
-        const noseTip = points[1].x;
-        const shift = mouthCenter - noseTip;
+        // 2. ЯЗЫК/РОТ (Влево/Вправо)
+        const mouthX = (pts[61].x + pts[291].x) / 2;
+        const noseX = pts[1].x;
+        const mouthShift = mouthX - noseX;
 
-        if (now - lastActionTime > 400) {
-            if (shift < -0.025) { // Рот влево
-                updateSelection(currentIndex - 1);
-                lastActionTime = now;
-            } else if (shift > 0.025) { // Рот вправо
-                updateSelection(currentIndex + 1);
-                lastActionTime = now;
+        if (currentMode === 'home' && now - lastAction > 500) {
+            if (mouthShift < -0.025) { // Рот влево
+                selectedAppIdx = Math.max(0, selectedAppIdx - 1);
+                updateDesktop();
+                lastAction = now;
+            } else if (mouthShift > 0.025) { // Рот вправо
+                selectedAppIdx = Math.min(appNodes.length - 1, selectedAppIdx + 1);
+                updateDesktop();
+                lastAction = now;
             }
         }
 
-        // 3. ОТКРЫТЫЙ РОТ -> СКРОЛЛ (подсветка всех иконок)
-        const mouthOpen = points[14].y - points[13].y;
-        if (mouthOpen > 0.05) {
-            home.style.transform = `translateY(${-Math.sin(now/200)*10}px)`;
-        } else {
-            home.style.transform = `translateY(0)`;
+        // 3. ОТКРЫТЫЙ РОТ (Скролл в ТикТок)
+        const mouthOpen = pts[14].y - pts[13].y;
+        if (currentMode === 'tiktok' && mouthOpen > 0.06 && now - lastAction > 1200) {
+            ttScrollIdx = (ttScrollIdx + 1) % 4; // Листаем по кругу
+            ttContainer.style.transform = `translateY(-${ttScrollIdx * 100}%)`;
+            showHint("СЛЕДУЮЩЕЕ ВИДЕО");
+            lastAction = now;
         }
+    }
+
+    function updateDesktop() {
+        appNodes.forEach((node, i) => {
+            node.classList.toggle('active', i === selectedAppIdx);
+        });
     }
 
     const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
     faceMesh.setOptions({ refineLandmarks: true, minDetectionConfidence: 0.5 });
     faceMesh.onResults(onResults);
 
-    const camera = new Camera(videoElement, {
-        onFrame: async () => { await faceMesh.send({image: videoElement}); },
+    const camera = new Camera(document.getElementById('input_video'), {
+        onFrame: async () => { await faceMesh.send({image: document.getElementById('input_video')}); },
         width: 480, height: 640
     });
     camera.start();
