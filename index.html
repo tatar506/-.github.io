@@ -2,101 +2,127 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>AI Чат (Qwen 2.5)</title>
+    <title>AI Чат (Google Gemini)</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
-        .chat-box { background: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; border: 1px solid #ccc;}
-        .message { padding: 10px; border-radius: 10px; max-width: 80%; }
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
+        .chat-container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .chat-box { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px; display: flex; flex-direction: column; gap: 10px; }
+        .message { padding: 8px 12px; border-radius: 15px; max-width: 80%; word-wrap: break-word; }
         .user { background: #007bff; color: white; align-self: flex-end; }
-        .ai { background: #e0e0e0; color: black; align-self: flex-start; }
-        .controls { max-width: 600px; margin: 20px auto; display: flex; gap: 10px; }
-        input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
+        .ai { background: #e0e0e0; color: #333; align-self: flex-start; }
+        .input-area { display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
         button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
         button:hover { background: #218838; }
-        .settings { max-width: 600px; margin: 0 auto 20px; padding: 10px; background: #fff; border-radius: 5px; font-size: 12px; }
-        .settings label { display: block; margin-bottom: 5px; font-weight: bold;}
-        .settings input { width: 95%; margin-bottom: 10px; }
+        .error { color: red; font-size: 0.9em; text-align: center; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-    <div class="settings">
-        <label>API URL (Адрес сервера):</label>
-        <!-- По умолчанию стоит OpenRouter, так как там есть Qwen -->
-        <input type="text" id="apiUrl" value="https://openrouter.ai/api/v1/chat/completions">
-        
-        <label>API Key (Ваш ключ):</label>
-        <input type="password" id="apiKey" value="c714c3bc6d064b8ba26ce978822575e7.yx3IDmt7w6ETOZ9vz8SXX1X8">
-        
-        <label>Имя модели:</label>
-        <!-- Модель Qwen 2.5 Coder -->
-        <input type="text" id="modelName" value="qwen/qwen-2.5-coder-7b-instruct">
+<div class="chat-container">
+    <h2 style="text-align: center;">Чат с Gemini</h2>
+    
+    <!-- Поле для ввода ключа, чтобы можно было легко менять -->
+    <div style="margin-bottom: 10px;">
+        <label style="font-size: 12px; font-weight: bold;">Ваш API Ключ:</label>
+        <input type="password" id="apiKey" style="width: 100%; box-sizing: border-box;" value="c714c3bc6d064b8ba26ce978822575e7.yx3IDmt7w6ETOZ9vz8SXX1X8">
     </div>
 
     <div class="chat-box" id="chatBox">
-        <div class="message ai">Привет! Я настроен на Qwen 2.5 Coder (через OpenRouter). Если ваш ключ от другого сервиса, поменяйте URL выше.</div>
+        <div class="message ai">Привет! Я Gemini 1.5 Flash. О чем поговорим?</div>
     </div>
 
-    <div class="controls">
-        <input type="text" id="userInput" placeholder="Введите сообщение...">
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Введите сообщение..." onkeypress="if(event.key === 'Enter') sendMessage()">
         <button onclick="sendMessage()">Отправить</button>
     </div>
+    <div id="errorMsg" class="error"></div>
+</div>
 
-    <script>
-        async function sendMessage() {
-            const input = document.getElementById('userInput');
-            const message = input.value;
-            if (!message) return;
+<script>
+    async function sendMessage() {
+        const input = document.getElementById('userInput');
+        const messageText = input.value.trim();
+        const key = document.getElementById('apiKey').value;
+        const chatBox = document.getElementById('chatBox');
+        const errorMsg = document.getElementById('errorMsg');
 
-            // Отображаем сообщение пользователя
-            addMessage(message, 'user');
-            input.value = '';
+        if (!messageText) return;
+        if (!key) {
+            errorMsg.innerText = "Пожалуйста, введите API ключ.";
+            return;
+        }
 
-            const url = document.getElementById('apiUrl').value;
-            const key = document.getElementById('apiKey').value;
-            const model = document.getElementById('modelName').value;
+        // Очистка ошибок и добавление сообщения пользователя
+        errorMsg.innerText = "";
+        addMessage(messageText, 'user');
+        input.value = '';
+        input.disabled = true; // Блокируем ввод пока ждем ответ
 
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${key}`,
-                        // Некоторые сервисы требуют этот заголовок
-                        'HTTP-Referer': window.location.href, 
-                        'X-Title': 'My AI Chat'
-                    },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: [
-                            { role: "user", content: message }
-                        ]
-                    })
-                });
+        // Добавляем индикатор загрузки
+        const loadingDiv = addMessage("Печатает...", 'ai');
 
-                if (!response.ok) {
-                    const err = await response.text();
-                    throw new Error(`Ошибка сервера (${response.status}): ${err}`);
-                }
+        try {
+            // URL для Gemini (ключ передается как параметр key=...)
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
 
-                const data = await response.json();
-                const aiText = data.choices[0].message.content;
-                addMessage(aiText, 'ai');
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    // Структура Gemini отличается от OpenAI!
+                    contents: [{
+                        parts: [{
+                            text: messageText
+                        }]
+                    }]
+                })
+            });
 
-            } catch (error) {
-                console.error(error);
-                addMessage(`ОШИБКА: ${error.message}. Проверьте URL и Ключ!`, 'ai');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error.message || `Ошибка HTTP: ${response.status}`);
             }
-        }
 
-        function addMessage(text, sender) {
-            const box = document.getElementById('chatBox');
-            const div = document.createElement('div');
-            div.className = `message ${sender}`;
-            div.innerText = text;
-            box.appendChild(div);
-            box.scrollTop = box.scrollHeight;
+            const data = await response.json();
+            
+            // Удаляем индикатор загрузки
+            chatBox.removeChild(loadingDiv);
+
+            // Парсим ответ Gemini
+            if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+                const aiText = data.candidates[0].content.parts[0].text;
+                addMessage(aiText, 'ai');
+            } else {
+                addMessage("Пришел пустой ответ от ИИ.", 'ai');
+            }
+
+        } catch (error) {
+            chatBox.removeChild(loadingDiv);
+            console.error(error);
+            addMessage(`Ошибка: ${error.message}`, 'ai');
+            
+            if (error.message.includes('400') || error.message.includes('API key')) {
+                errorMsg.innerText = "Скорее всего, этот API ключ не подходит для прямого доступа к Google Gemini. Проверьте провайдера ключа.";
+            }
+        } finally {
+            input.disabled = false;
+            input.focus();
         }
-    </script>
+    }
+
+    function addMessage(text, sender) {
+        const chatBox = document.getElementById('chatBox');
+        const div = document.createElement('div');
+        div.className = `message ${sender}`;
+        div.innerText = text;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return div;
+    }
+</script>
+
 </body>
 </html>
