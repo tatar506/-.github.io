@@ -2,224 +2,101 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Чат (Демо)</title>
+    <title>AI Чат (Qwen 2.5)</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f7f6;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .chat-container {
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 600px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            height: 80vh; /* Увеличим высоту чата */
-        }
-        .chat-messages {
-            flex-grow: 1;
-            padding: 20px;
-            overflow-y: auto;
-            border-bottom: 1px solid #eee;
-            background-color: #eef2f1;
-        }
-        .message {
-            margin-bottom: 15px;
-            display: flex;
-            flex-direction: column;
-        }
-        .message.user {
-            align-items: flex-end;
-        }
-        .message.ai {
-            align-items: flex-start;
-        }
-        .message-bubble {
-            padding: 10px 15px;
-            border-radius: 18px;
-            max-width: 70%;
-            word-wrap: break-word;
-            line-height: 1.4;
-        }
-        .message.user .message-bubble {
-            background-color: #007bff;
-            color: white;
-            border-bottom-right-radius: 4px;
-        }
-        .message.ai .message-bubble {
-            background-color: #e0e0e0;
-            color: #333;
-            border-bottom-left-radius: 4px;
-        }
-        .chat-input {
-            display: flex;
-            padding: 15px;
-            border-top: 1px solid #eee;
-        }
-        .chat-input input {
-            flex-grow: 1;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-            margin-right: 10px;
-            font-size: 16px;
-        }
-        .chat-input button {
-            background-color: #28a745;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.2s;
-        }
-        .chat-input button:hover {
-            background-color: #218838;
-        }
-        .error-message {
-            color: red;
-            margin-top: 10px;
-            text-align: center;
-        }
-        .loading-indicator {
-            text-align: center;
-            font-style: italic;
-            color: #888;
-            margin-top: 10px;
-        }
+        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
+        .chat-box { background: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto; height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; border: 1px solid #ccc;}
+        .message { padding: 10px; border-radius: 10px; max-width: 80%; }
+        .user { background: #007bff; color: white; align-self: flex-end; }
+        .ai { background: #e0e0e0; color: black; align-self: flex-start; }
+        .controls { max-width: 600px; margin: 20px auto; display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #218838; }
+        .settings { max-width: 600px; margin: 0 auto 20px; padding: 10px; background: #fff; border-radius: 5px; font-size: 12px; }
+        .settings label { display: block; margin-bottom: 5px; font-weight: bold;}
+        .settings input { width: 95%; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-messages" id="chatMessages">
-            <div class="message ai">
-                <div class="message-bubble">Привет! Я ваш AI-ассистент. Задайте мне вопрос.</div>
-            </div>
-        </div>
-        <div class="chat-input">
-            <input type="text" id="userInput" placeholder="Напишите сообщение..." autofocus>
-            <button id="sendButton">Отправить</button>
-        </div>
-        <div id="errorMessage" class="error-message"></div>
+
+    <div class="settings">
+        <label>API URL (Адрес сервера):</label>
+        <!-- По умолчанию стоит OpenRouter, так как там есть Qwen -->
+        <input type="text" id="apiUrl" value="https://openrouter.ai/api/v1/chat/completions">
+        
+        <label>API Key (Ваш ключ):</label>
+        <input type="password" id="apiKey" value="c714c3bc6d064b8ba26ce978822575e7.yx3IDmt7w6ETOZ9vz8SXX1X8">
+        
+        <label>Имя модели:</label>
+        <!-- Модель Qwen 2.5 Coder -->
+        <input type="text" id="modelName" value="qwen/qwen-2.5-coder-7b-instruct">
+    </div>
+
+    <div class="chat-box" id="chatBox">
+        <div class="message ai">Привет! Я настроен на Qwen 2.5 Coder (через OpenRouter). Если ваш ключ от другого сервиса, поменяйте URL выше.</div>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="userInput" placeholder="Введите сообщение...">
+        <button onclick="sendMessage()">Отправить</button>
     </div>
 
     <script>
-        // !!! ОЧЕНЬ ВАЖНОЕ ПРЕДУПРЕЖДЕНИЕ !!!
-        // Никогда не храните API-ключи в клиентском коде (HTML/JavaScript) в реальных приложениях!
-        // Это делается здесь ТОЛЬКО для демонстрации.
-        // Для продакшн-приложений используйте бэкенд-прокси-сервер.
-        const API_KEY = "c714c3bc6d064b8ba26ce978822575e7.yx3IDmt7w6ETOZ9vz8SXX1X8";
-
-        // !!! ЗАМЕНИТЕ ЭТОТ URL на URL вашего облачного ИИ-сервиса !!!
-        // Например, для OpenAI это может быть: https://api.openai.com/v1/chat/completions
-        // Для Google Gemini (при использовании их API): https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=YOUR_API_KEY_HERE
-        // (Для Gemini, ключ может передаваться в URL)
-        const API_ENDPOINT = "https://api.example-ai.com/v1/chat/completions"; 
-
-        const chatMessages = document.getElementById("chatMessages");
-        const userInput = document.getElementById("userInput");
-        const sendButton = document.getElementById("sendButton");
-        const errorMessageDiv = document.getElementById("errorMessage");
-
         async function sendMessage() {
-            const messageText = userInput.value.trim();
-            if (messageText === "") return;
+            const input = document.getElementById('userInput');
+            const message = input.value;
+            if (!message) return;
 
-            // Добавляем сообщение пользователя в чат
-            addMessage(messageText, "user");
-            userInput.value = "";
-            errorMessageDiv.textContent = ""; // Очищаем предыдущие ошибки
+            // Отображаем сообщение пользователя
+            addMessage(message, 'user');
+            input.value = '';
 
-            // Индикатор загрузки
-            const loadingIndicator = addMessage("AI печатает...", "ai", true);
+            const url = document.getElementById('apiUrl').value;
+            const key = document.getElementById('apiKey').value;
+            const model = document.getElementById('modelName').value;
 
             try {
-                // !!! ВАЖНО: Тело запроса может сильно отличаться в зависимости от API ИИ !!!
-                // Ниже приведен пример, похожий на OpenAI/Gemini
-                const response = await fetch(API_ENDPOINT, {
-                    method: "POST",
+                const response = await fetch(url, {
+                    method: 'POST',
                     headers: {
-                        "Content-Type": "application/json",
-                        // Для некоторых API ключ передается в заголовке Authorization
-                        "Authorization": `Bearer ${API_KEY}` 
-                        // Для других API может быть заголовок "X-API-Key"
-                        // Или даже сам ключ может быть частью URL для некоторых сервисов (например, Google Gemini)
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${key}`,
+                        // Некоторые сервисы требуют этот заголовок
+                        'HTTP-Referer': window.location.href, 
+                        'X-Title': 'My AI Chat'
                     },
                     body: JSON.stringify({
-                        // Пример для OpenAI-подобного API:
-                        model: "gpt-3.5-turbo", // Замените на имя вашей модели
+                        model: model,
                         messages: [
-                            { role: "system", content: "You are a helpful assistant." },
-                            { role: "user", content: messageText }
-                        ],
-                        max_tokens: 150
+                            { role: "user", content: message }
+                        ]
                     })
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`Ошибка API: ${response.status} - ${errorData.error?.message || response.statusText}`);
+                    const err = await response.text();
+                    throw new Error(`Ошибка сервера (${response.status}): ${err}`);
                 }
 
                 const data = await response.json();
-                
-                // Удаляем индикатор загрузки
-                loadingIndicator.remove();
-
-                // !!! ВАЖНО: Путь к ответу ИИ может отличаться !!!
-                // Для OpenAI-подобного API: data.choices[0].message.content
-                // Для Google Gemini API: data.candidates[0].content.parts[0].text
-                const aiResponseText = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content 
-                                    ? data.choices[0].message.content 
-                                    : "Извините, не удалось получить ответ от ИИ.";
-
-                addMessage(aiResponseText, "ai");
+                const aiText = data.choices[0].message.content;
+                addMessage(aiText, 'ai');
 
             } catch (error) {
-                console.error("Ошибка при получении ответа от ИИ:", error);
-                errorMessageDiv.textContent = "Произошла ошибка: " + error.message;
-                if (loadingIndicator) loadingIndicator.remove(); // Удаляем индикатор даже при ошибке
-                addMessage("Извините, произошла ошибка. Попробуйте еще раз.", "ai");
-            } finally {
-                 chatMessages.scrollTop = chatMessages.scrollHeight; // Прокрутка вниз
+                console.error(error);
+                addMessage(`ОШИБКА: ${error.message}. Проверьте URL и Ключ!`, 'ai');
             }
         }
 
-        function addMessage(text, sender, isLoading = false) {
-            const messageDiv = document.createElement("div");
-            messageDiv.classList.add("message", sender);
-
-            const messageBubble = document.createElement("div");
-            messageBubble.classList.add("message-bubble");
-            messageBubble.textContent = text;
-            messageDiv.appendChild(messageBubble);
-
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight; // Автоматическая прокрутка вниз
-
-            if (isLoading) {
-                messageDiv.classList.add("loading-indicator");
-            }
-            return messageDiv; // Возвращаем элемент для возможности его удаления
+        function addMessage(text, sender) {
+            const box = document.getElementById('chatBox');
+            const div = document.createElement('div');
+            div.className = `message ${sender}`;
+            div.innerText = text;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
         }
-
-        sendButton.addEventListener("click", sendMessage);
-        userInput.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") {
-                sendMessage();
-            }
-        });
     </script>
 </body>
 </html>
