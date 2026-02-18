@@ -3,269 +3,223 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FaceOS Pro Prototype</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <title>AI Чат (Демо)</title>
     <style>
-        :root { --android-green: #3ddc84; --bg-dark: #000; }
-        body { margin: 0; background: #1a1a1a; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; color: white; overflow: hidden; }
-
-        /* Смартфон */
-        #phone {
-            width: 360px;
-            height: 740px;
-            background: var(--bg-dark);
-            border: 12px solid #333;
-            border-radius: 45px;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-        }
-
-        /* Камера (превью) */
-        #cam-layer {
-            position: absolute;
-            top: 45px;
-            right: 15px;
-            width: 70px;
-            height: 90px;
-            border-radius: 12px;
-            border: 2px solid var(--android-green);
-            overflow: hidden;
-            z-index: 1000;
-            background: #222;
-        }
-        video { transform: scaleX(-1); width: 100%; height: 100%; object-fit: cover; }
-
-        /* Статус бар */
-        .status-bar { height: 35px; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; font-size: 13px; z-index: 100; }
-
-        /* Контент ОС */
-        #screen-content { flex: 1; position: relative; width: 100%; }
-
-        /* ГЛАВНЫЙ ЭКРАН */
-        .desktop {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
             padding: 20px;
-            transition: 0.5s;
-        }
-        .app-node {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 10px;
-            border-radius: 15px;
-            border: 2px solid transparent;
-        }
-        .app-node.active { border-color: var(--android-green); background: rgba(61, 220, 132, 0.2); transform: scale(1.1); }
-        .app-icon { width: 55px; height: 55px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 28px; margin-bottom: 5px; }
-
-        /* ПРИЛОЖЕНИЕ TIKTOK (FAKE) */
-        #tiktok-app {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #000;
-            display: none; /* Скрыто по умолчанию */
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .tt-video {
-            min-height: 100%;
-            width: 100%;
+            background-color: #f4f7f6;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 24px;
-            border-bottom: 2px solid #222;
-            position: relative;
+            min-height: 100vh;
         }
-        .tt-ui { position: absolute; right: 10px; bottom: 50px; display: flex; flex-direction: column; gap: 20px; }
-        .tt-btn { width: 45px; height: 45px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; justify-content: center; align-items: center; }
-
-        /* Навигационная панель */
-        .nav-bar { height: 50px; background: rgba(0,0,0,0.9); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #222; }
-        .nav-btn { width: 18px; height: 18px; border: 2px solid #666; border-radius: 4px; }
-        
-        /* Индикатор жестов */
-        #gesture-hint {
-            position: absolute;
-            bottom: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--android-green);
-            color: black;
-            padding: 5px 15px;
+        .chat-container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 80vh; /* Увеличим высоту чата */
+        }
+        .chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            border-bottom: 1px solid #eee;
+            background-color: #eef2f1;
+        }
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        .message.user {
+            align-items: flex-end;
+        }
+        .message.ai {
+            align-items: flex-start;
+        }
+        .message-bubble {
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+        .message.user .message-bubble {
+            background-color: #007bff;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .message.ai .message-bubble {
+            background-color: #e0e0e0;
+            color: #333;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #eee;
+        }
+        .chat-input input {
+            flex-grow: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
             border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            display: none;
-            z-index: 10000;
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        .chat-input button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        .chat-input button:hover {
+            background-color: #218838;
+        }
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .loading-indicator {
+            text-align: center;
+            font-style: italic;
+            color: #888;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-
-<div id="phone">
-    <div class="status-bar">
-        <span id="clock">12:00</span>
-        <span>📶 🔋 100%</span>
-    </div>
-
-    <div id="cam-layer">
-        <video id="input_video"></video>
-    </div>
-
-    <div id="gesture-hint">ДЕЙСТВИЕ</div>
-
-    <div id="screen-content">
-        <!-- Рабочий стол -->
-        <div id="desktop" class="desktop">
-            <div class="app-node active" data-app="tiktok">
-                <div class="app-icon" style="background: #000; border: 1px solid #333;">📱</div>
-                <span>TikTok</span>
-            </div>
-            <div class="app-node" data-app="photos">
-                <div class="app-icon" style="background: #fff;">🖼️</div>
-                <span>Фото</span>
-            </div>
-            <div class="app-node" data-app="web">
-                <div class="app-icon" style="background: #2196F3;">🌐</div>
-                <span>Browser</span>
-            </div>
-            <div class="app-node" data-app="settings">
-                <div class="app-icon" style="background: #9E9E9E;">⚙️</div>
-                <span>Настройки</span>
+    <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai">
+                <div class="message-bubble">Привет! Я ваш AI-ассистент. Задайте мне вопрос.</div>
             </div>
         </div>
-
-        <!-- Fake TikTok App -->
-        <div id="tiktok-app">
-            <div id="tt-container" style="height: 100%; transition: transform 0.4s ease-out;">
-                <div class="tt-video" style="background: linear-gradient(45deg, #f06, #4a9);">
-                    Видео 1: Танцы
-                    <div class="tt-ui"><div class="tt-btn">❤️</div><div class="tt-btn">💬</div></div>
-                </div>
-                <div class="tt-video" style="background: linear-gradient(45deg, #2196F3, #f44336);">
-                    Видео 2: Котятки
-                    <div class="tt-ui"><div class="tt-btn">❤️</div><div class="tt-btn">💬</div></div>
-                </div>
-                <div class="tt-video" style="background: linear-gradient(45deg, #FFEB3B, #4CAF50);">
-                    Видео 3: Лайфхак
-                    <div class="tt-ui"><div class="tt-btn">❤️</div><div class="tt-btn">💬</div></div>
-                </div>
-                <div class="tt-video" style="background: linear-gradient(45deg, #9C27B0, #00BCD4);">
-                    Видео 4: Машины
-                    <div class="tt-ui"><div class="tt-btn">❤️</div><div class="tt-btn">💬</div></div>
-                </div>
-            </div>
+        <div class="chat-input">
+            <input type="text" id="userInput" placeholder="Напишите сообщение..." autofocus>
+            <button id="sendButton">Отправить</button>
         </div>
+        <div id="errorMessage" class="error-message"></div>
     </div>
 
-    <div class="nav-bar">
-        <div class="nav-btn" style="transform: rotate(-45deg); border-right:none; border-top:none; width:12px; height:12px;"></div>
-        <div class="nav-btn" style="border-radius: 50%; width: 22px; height: 22px;"></div>
-        <div class="nav-btn"></div>
-    </div>
-</div>
+    <script>
+        // !!! ОЧЕНЬ ВАЖНОЕ ПРЕДУПРЕЖДЕНИЕ !!!
+        // Никогда не храните API-ключи в клиентском коде (HTML/JavaScript) в реальных приложениях!
+        // Это делается здесь ТОЛЬКО для демонстрации.
+        // Для продакшн-приложений используйте бэкенд-прокси-сервер.
+        const API_KEY = "c714c3bc6d064b8ba26ce978822575e7.yx3IDmt7w6ETOZ9vz8SXX1X8";
 
-<script>
-    // Обновление времени
-    setInterval(() => {
-        const d = new Date();
-        document.getElementById('clock').innerText = d.getHours() + ":" + String(d.getMinutes()).padStart(2, '0');
-    }, 1000);
+        // !!! ЗАМЕНИТЕ ЭТОТ URL на URL вашего облачного ИИ-сервиса !!!
+        // Например, для OpenAI это может быть: https://api.openai.com/v1/chat/completions
+        // Для Google Gemini (при использовании их API): https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=YOUR_API_KEY_HERE
+        // (Для Gemini, ключ может передаваться в URL)
+        const API_ENDPOINT = "https://api.example-ai.com/v1/chat/completions"; 
 
-    const desktop = document.getElementById('desktop');
-    const tiktokApp = document.getElementById('tiktok-app');
-    const ttContainer = document.getElementById('tt-container');
-    const hint = document.getElementById('gesture-hint');
-    const appNodes = document.querySelectorAll('.app-node');
+        const chatMessages = document.getElementById("chatMessages");
+        const userInput = document.getElementById("userInput");
+        const sendButton = document.getElementById("sendButton");
+        const errorMessageDiv = document.getElementById("errorMessage");
 
-    let currentMode = 'home'; // home или tiktok
-    let selectedAppIdx = 0;
-    let ttScrollIdx = 0;
-    let lastAction = 0;
+        async function sendMessage() {
+            const messageText = userInput.value.trim();
+            if (messageText === "") return;
 
-    function showHint(text) {
-        hint.innerText = text;
-        hint.style.display = 'block';
-        setTimeout(() => hint.style.display = 'none', 1000);
-    }
+            // Добавляем сообщение пользователя в чат
+            addMessage(messageText, "user");
+            userInput.value = "";
+            errorMessageDiv.textContent = ""; // Очищаем предыдущие ошибки
 
-    function onResults(results) {
-        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
-        const pts = results.multiFaceLandmarks[0];
-        const now = Date.now();
+            // Индикатор загрузки
+            const loadingIndicator = addMessage("AI печатает...", "ai", true);
 
-        // 1. МОРГАНИЕ (Клик или вход)
-        const leftEye = pts[145].y - pts[159].y;
-        if (leftEye < 0.012 && now - lastAction > 1000) {
-            if (currentMode === 'home') {
-                const appName = appNodes[selectedAppIdx].getAttribute('data-app');
-                if (appName === 'tiktok') {
-                    currentMode = 'tiktok';
-                    tiktokApp.style.display = 'flex';
-                    desktop.style.display = 'none';
-                    showHint("ОТКРЫТ TIKTOK");
+            try {
+                // !!! ВАЖНО: Тело запроса может сильно отличаться в зависимости от API ИИ !!!
+                // Ниже приведен пример, похожий на OpenAI/Gemini
+                const response = await fetch(API_ENDPOINT, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        // Для некоторых API ключ передается в заголовке Authorization
+                        "Authorization": `Bearer ${API_KEY}` 
+                        // Для других API может быть заголовок "X-API-Key"
+                        // Или даже сам ключ может быть частью URL для некоторых сервисов (например, Google Gemini)
+                    },
+                    body: JSON.stringify({
+                        // Пример для OpenAI-подобного API:
+                        model: "gpt-3.5-turbo", // Замените на имя вашей модели
+                        messages: [
+                            { role: "system", content: "You are a helpful assistant." },
+                            { role: "user", content: messageText }
+                        ],
+                        max_tokens: 150
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Ошибка API: ${response.status} - ${errorData.error?.message || response.statusText}`);
                 }
-            } else {
-                // Если в ТикТоке зажмуриться надолго - выход
-                if (leftEye < 0.008) {
-                    currentMode = 'home';
-                    tiktokApp.style.display = 'none';
-                    desktop.style.display = 'grid';
-                    showHint("ВЫХОД ДОМОЙ");
-                }
-            }
-            lastAction = now;
-        }
 
-        // 2. ЯЗЫК/РОТ (Влево/Вправо)
-        const mouthX = (pts[61].x + pts[291].x) / 2;
-        const noseX = pts[1].x;
-        const mouthShift = mouthX - noseX;
+                const data = await response.json();
+                
+                // Удаляем индикатор загрузки
+                loadingIndicator.remove();
 
-        if (currentMode === 'home' && now - lastAction > 500) {
-            if (mouthShift < -0.025) { // Рот влево
-                selectedAppIdx = Math.max(0, selectedAppIdx - 1);
-                updateDesktop();
-                lastAction = now;
-            } else if (mouthShift > 0.025) { // Рот вправо
-                selectedAppIdx = Math.min(appNodes.length - 1, selectedAppIdx + 1);
-                updateDesktop();
-                lastAction = now;
+                // !!! ВАЖНО: Путь к ответу ИИ может отличаться !!!
+                // Для OpenAI-подобного API: data.choices[0].message.content
+                // Для Google Gemini API: data.candidates[0].content.parts[0].text
+                const aiResponseText = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content 
+                                    ? data.choices[0].message.content 
+                                    : "Извините, не удалось получить ответ от ИИ.";
+
+                addMessage(aiResponseText, "ai");
+
+            } catch (error) {
+                console.error("Ошибка при получении ответа от ИИ:", error);
+                errorMessageDiv.textContent = "Произошла ошибка: " + error.message;
+                if (loadingIndicator) loadingIndicator.remove(); // Удаляем индикатор даже при ошибке
+                addMessage("Извините, произошла ошибка. Попробуйте еще раз.", "ai");
+            } finally {
+                 chatMessages.scrollTop = chatMessages.scrollHeight; // Прокрутка вниз
             }
         }
 
-        // 3. ОТКРЫТЫЙ РОТ (Скролл в ТикТок)
-        const mouthOpen = pts[14].y - pts[13].y;
-        if (currentMode === 'tiktok' && mouthOpen > 0.06 && now - lastAction > 1200) {
-            ttScrollIdx = (ttScrollIdx + 1) % 4; // Листаем по кругу
-            ttContainer.style.transform = `translateY(-${ttScrollIdx * 100}%)`;
-            showHint("СЛЕДУЮЩЕЕ ВИДЕО");
-            lastAction = now;
-        }
-    }
+        function addMessage(text, sender, isLoading = false) {
+            const messageDiv = document.createElement("div");
+            messageDiv.classList.add("message", sender);
 
-    function updateDesktop() {
-        appNodes.forEach((node, i) => {
-            node.classList.toggle('active', i === selectedAppIdx);
+            const messageBubble = document.createElement("div");
+            messageBubble.classList.add("message-bubble");
+            messageBubble.textContent = text;
+            messageDiv.appendChild(messageBubble);
+
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Автоматическая прокрутка вниз
+
+            if (isLoading) {
+                messageDiv.classList.add("loading-indicator");
+            }
+            return messageDiv; // Возвращаем элемент для возможности его удаления
+        }
+
+        sendButton.addEventListener("click", sendMessage);
+        userInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
         });
-    }
-
-    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-    faceMesh.setOptions({ refineLandmarks: true, minDetectionConfidence: 0.5 });
-    faceMesh.onResults(onResults);
-
-    const camera = new Camera(document.getElementById('input_video'), {
-        onFrame: async () => { await faceMesh.send({image: document.getElementById('input_video')}); },
-        width: 480, height: 640
-    });
-    camera.start();
-</script>
+    </script>
 </body>
 </html>
